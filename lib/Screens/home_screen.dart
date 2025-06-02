@@ -15,6 +15,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
 
   List<FileSystemEntity> internalStorageData = [];
+  List<FileSystemEntity> externalStorageData = [];
+  bool _isExternalStorageFound = false;
 
   @override
   void initState() {
@@ -27,15 +29,37 @@ class _HomeScreenState extends State<HomeScreen> {
     await Permission.manageExternalStorage.request();
 
     String internalStoragePath = "storage/emulated/0/";
+    String? externalStoragePath;
 
+    //For Internal Storage
     List<FileSystemEntity> internalList = Directory(internalStoragePath).listSync();
 
+    //For External Storage like sd-card
+    Directory root = Directory("/storage/");
+    List<FileSystemEntity> entries = root.listSync();
+    for (var entity in entries) {
+      String name = entity.path.split("/").last;
+      if (name.contains("-")) {
+        externalStoragePath = entity.path;
+        break;
+      }
+    }
+
+    List<FileSystemEntity> externalList =
+    externalStoragePath != null ? Directory(externalStoragePath).listSync() : [];
+
     setState(() {
+      externalStoragePath == null ? _isExternalStorageFound = false : _isExternalStorageFound = true;
       internalStorageData = internalList;
+      externalStorageData = externalList;
     });
   }
 
-  Widget showingFiles(List<FileSystemEntity> files){
+  Widget showingFiles(List<FileSystemEntity> files, int index){
+
+    if(!_isExternalStorageFound && index == 1){
+      return Center(child: Text("No External Storage Found",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 20),),);
+    }
 
     if(files.isEmpty) return Center(child: Text("No Files Found",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 20),),);
 
@@ -78,8 +102,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         body: TabBarView(
           children: [
-            showingFiles(internalStorageData),
-            Center(child: Text("Internal Storage")),
+            showingFiles(internalStorageData,0),
+            showingFiles(externalStorageData,1),
           ],
         ),
       ),
