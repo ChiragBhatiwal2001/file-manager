@@ -1,156 +1,80 @@
-import 'dart:io';
 import 'package:file_manager/Screens/file_explorer_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() {
+    return _HomeScreenState();
+  }
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<FileSystemEntity> _externalStorageData = [];
-  List<FileSystemEntity> _internalStorageData = [];
-  bool _isExternalStoragePresent = false;
-
   @override
   void initState() {
     super.initState();
-    _initStorageAccess();
+    _requestPermission();
   }
 
-  Future<void> _initStorageAccess() async {
-    await _requestStoragePermissions();
-    await _getAllFilesAndFolders();
-  }
+  Future<void> _requestPermission() async {
+    var status = await Permission.manageExternalStorage.status;
 
-  Future<void> _requestStoragePermissions() async {
-    final status = await Permission.manageExternalStorage.status;
-
-    if (!status.isGranted) {
-      final result = await Permission.manageExternalStorage.request();
-      if (!result.isGranted) {
+    if (status.isGranted) {
+      return;
+    } else {
+      status = await Permission.manageExternalStorage.request();
+      if (status.isGranted) {
+        return;
+      } else {
         await openAppSettings();
+        return;
       }
     }
-  }
-
-  Future<List<FileSystemEntity>> _getInternalStorage() async {
-    try {
-      final dir = Directory("/storage/emulated/0/");
-      if (await dir.exists()) {
-        return await dir.list().toList();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Internal Storage Error: $e")));
-      }
-    }
-    return [];
-  }
-
-  Future<List<FileSystemEntity>> _getExternalStorage() async {
-    try {
-      final entries = Directory("/storage/").listSync();
-
-      for (final entity in entries) {
-        final name = entity.path.split("/").last;
-        if (!["emulated", "self", "enc-emulated"].contains(name)) {
-          final dir = Directory(entity.path);
-          if (await dir.exists()) {
-            _isExternalStoragePresent = true;
-            return await dir.list().toList();
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("External Storage Error: $e")));
-      }
-    }
-
-    _isExternalStoragePresent = false;
-    return [];
-  }
-
-  Future<void> _getAllFilesAndFolders() async {
-    final internal = await _getInternalStorage();
-    final external = await _getExternalStorage();
-
-    if (mounted) {
-      setState(() {
-        _internalStorageData = internal;
-        _externalStorageData = external;
-      });
-    }
-  }
-
-  Widget _buildFileList(List<FileSystemEntity> files, int tabIndex) {
-    if (tabIndex == 1 && !_isExternalStoragePresent) {
-      return Center(
-        child: Text(
-          "No External Storage Found.",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-      );
-    }
-
-    if (files.isEmpty) {
-      return Center(
-        child: Text(
-          "Storage Is Empty",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      itemCount: files.length,
-      itemBuilder: (context, index) {
-        final file = files[index];
-        final fileName = file.path.split("/").last;
-        final isDir = FileSystemEntity.isDirectorySync(file.path);
-        return ListTile(
-          leading: Icon(isDir ? Icons.folder : Icons.insert_drive_file),
-          title: Text(fileName),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => FileExplorerScreen()),
-            );
-          },
-        );
-      },
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            "Files",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-          ),
-          bottom: TabBar(
-            tabs: [
-              Tab(text: "Internal"),
-              Tab(text: "External"),
-            ],
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          "File-Manager",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        body: TabBarView(
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: IconButton(onPressed: () {}, icon: Icon(Icons.search)),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        child: Column(
           children: [
-            FileExplorerScreen(path: "/storage/emulated/0/"),
-            _buildFileList(_externalStorageData, 1),
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const FileExplorerScreen(path: "/storage/emulated/0/"),
+                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Container(
+                  width: double.infinity,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.black, width: 2),
+                    borderRadius: BorderRadius.circular(5.0),
+                  ),
+                  child: Text("Internal Storage"),
+                ),
+              ),
+            ),
           ],
         ),
       ),
