@@ -1,6 +1,6 @@
+import 'package:external_path/external_path.dart';
 import 'package:file_manager/Screens/file_explorer_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -13,24 +13,78 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  String? internalStorage;
+
   @override
   void initState() {
     super.initState();
-    _requestPermission();
   }
 
-  Future<void> _requestPermission() async {
-    var status = await Permission.manageExternalStorage.status;
+  Future<bool> _requestPermission() async {
+    if (await Permission.manageExternalStorage.isGranted) {
+      return true;
+    }
 
-    if (status.isGranted) {
-      return;
-    } else {
-      status = await Permission.manageExternalStorage.request();
-      if (status.isGranted) {
-        return;
-      } else {
+    if (await Permission.manageExternalStorage.isDenied) {
+      final status = await Permission.manageExternalStorage.request();
+      if (status.isGranted) return true;
+      if (status.isPermanentlyDenied) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Permission Required'),
+            content: Text(
+              'Please grant "All files access" in app settings to use the file manager.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text('OK'),
+              ),
+            ],
+          ),
+        );
         await openAppSettings();
-        return;
+        return false;
+      }
+      return false;
+    }
+
+    if (await Permission.storage.isDenied) {
+      final status = await Permission.storage.request();
+      if (status.isGranted) return true;
+      if (status.isPermanentlyDenied) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Permission Required'),
+            content: Text(
+              'Please grant storage permission in app settings to use the file manager.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text('OK'),
+              ),
+            ],
+          ),
+        );
+        await openAppSettings();
+        return false;
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<void> getStoragePath() async {
+    final internalStoragePath =
+        await ExternalPath.getExternalStorageDirectories();
+    for (var storage in internalStoragePath!) {
+      if (storage.contains("emulated")) {
+        internalStorage = storage;
+        break;
       }
     }
   }
@@ -43,22 +97,21 @@ class _HomeScreenState extends State<HomeScreen> {
           "File-Manager",
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: IconButton(onPressed: () {}, icon: Icon(Icons.search)),
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         child: Column(
           children: [
             GestureDetector(
-              onTap: () {
+              onTap: () async {
+                final isGranted = await _requestPermission();
+                if (!isGranted) {
+                  return;
+                }
+                await getStoragePath();
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) =>
-                        const FileExplorerScreen(path: "/storage/emulated/0/"),
+                        FileExplorerScreen(path: internalStorage!),
                   ),
                 );
               },

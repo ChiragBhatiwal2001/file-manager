@@ -26,6 +26,7 @@ class _BreadcrumbWidget extends State<BreadcrumbWidget> {
     pathList = widget.path.split("/");
     _updateBreadcrumbs();
   }
+
   @override
   void didUpdateWidget(covariant BreadcrumbWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -33,6 +34,7 @@ class _BreadcrumbWidget extends State<BreadcrumbWidget> {
       _updateBreadcrumbs();
     }
   }
+
   void _updateBreadcrumbs() {
     pathList = widget.path.split("/");
     breadcrumbList = [];
@@ -42,23 +44,24 @@ class _BreadcrumbWidget extends State<BreadcrumbWidget> {
       String path = "/" + pathList.sublist(1, i + 1).join("/");
       breadcrumbList.add(path);
     }
-    setState(() {}); // Ensure widget rebuilds
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     final hadData = breadcrumbList.isNotEmpty;
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Align(
-        alignment: Alignment.centerLeft,
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(left: 10.0),
+        scrollDirection: Axis.horizontal,
         child: Row(
           mainAxisSize: MainAxisSize.max,
           mainAxisAlignment: MainAxisAlignment.start,
           children: List.generate(breadcrumbList.length, (index) {
             String name = breadcrumbList[index].split("/").last;
-            name = name == "0" ? "Internal Storage" : name;
+            name = name == "0" ? "All Files" : name;
 
             return hadData
                 ? Row(
@@ -67,10 +70,13 @@ class _BreadcrumbWidget extends State<BreadcrumbWidget> {
                         onTap: () {
                           widget.loadContent(breadcrumbList[index]);
                         },
-                        child: Text(name),
+                        child: Text(
+                          name,
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
                       if (index != breadcrumbList.length - 1)
-                        const Text(" > ", style: TextStyle(color: Colors.black)),
+                        const Text("➤", style: TextStyle(color: Colors.black)),
                     ],
                   )
                 : Text("Internal Storage");
