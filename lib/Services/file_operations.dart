@@ -4,10 +4,10 @@ class FileOperations {
   Set<String> selectedPath = {};
 
   Future<void> pasteFileToDestination(
-      bool isCopy,
-      String destination,
-      String source,
-      ) async {
+    bool isCopy,
+    String destination,
+    String source,
+  ) async {
     final name = source.split("/").last;
     final pathName = "$destination/$name";
 
@@ -33,7 +33,6 @@ class FileOperations {
       }
     }
   }
-
 
   Future<void> _copyFolder(Directory source, Directory destination) async {
     await destination.create();

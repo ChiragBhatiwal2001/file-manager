@@ -122,6 +122,66 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
     );
   }
 
+  Future<void> _showRenameDialog() async {
+    final oldPath = selectedPath.first;
+    final isDir = FileSystemEntity.isDirectorySync(oldPath);
+    final oldName = oldPath.split("/").last;
+    final _renameTextController = TextEditingController(text: oldName);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(isDir ? "Rename Folder" : "Rename File"),
+          content: TextField(
+            controller: _renameTextController,
+            decoration: InputDecoration(
+              label: Text("Name"),
+              border: OutlineInputBorder(
+                borderSide: BorderSide(color: Colors.black, width: 2),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () async {
+                final newName = _renameTextController.text.trim();
+                if (newName.isEmpty || newName == oldName) return;
+
+                final parentDir = Directory(oldPath).parent.path;
+                final newPath = "$parentDir/$newName";
+
+                try {
+                  final entity = isDir ? Directory(oldPath) : File(oldPath);
+                  await entity.rename(newPath);
+
+                  setState(() {
+                    selectedPath.clear();
+                    isSelected = false;
+                  });
+                  Navigator.of(context).pop();
+                  _loadContent(currentPath); // Refresh list
+                } catch (e) {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Rename failed: ${e.toString()}")),
+                  );
+                }
+              },
+              child: Text("Confirm"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     String currentFolderName = currentPath == widget.path
@@ -195,7 +255,7 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
             Expanded(
               child: ListView.builder(
                 itemCount: folderData.length,
-                itemBuilder: (context, index) {
+                itemBuilder: (context, index){
                   final file = folderData[index];
                   final fileName = file.path.split("/").last;
                   final isDir = FileSystemEntity.isDirectorySync(file.path);
@@ -205,18 +265,20 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
                       isDir ? Icons.folder : Icons.insert_drive_file,
                     ),
                     title: Text(fileName),
-                    trailing: isSelected ? Checkbox(
-                      value: isChecked,
-                      onChanged: (value) {
-                        setState(() {
-                          if (value == true) {
-                            selectedPath.add(file.path);
-                          } else {
-                            selectedPath.remove(file.path);
-                          }
-                        });
-                      },
-                    ) : null,
+                    trailing: isSelected
+                        ? Checkbox(
+                            value: isChecked,
+                            onChanged: (value) {
+                              setState(() {
+                                if (value == true) {
+                                  selectedPath.add(file.path);
+                                } else {
+                                  selectedPath.remove(file.path);
+                                }
+                              });
+                            },
+                          )
+                        : null,
                     onLongPress: () {
                       setState(() {
                         isSelected = true;
@@ -239,6 +301,13 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  if (selectedPath.length <= 1)
+                    IconButton(
+                      onPressed: () {
+                        _showRenameDialog();
+                      },
+                      icon: Icon(Icons.drive_file_rename_outline),
+                    ),
                   IconButton(
                     onPressed: () async {
                       setState(() {
