@@ -1,8 +1,13 @@
 import 'dart:io';
+import 'package:open_filex/open_filex.dart';
+import 'package:file_manager/Helpers/add_folder_dialog.dart';
+import 'package:file_manager/Helpers/rename_dialog.dart';
 import 'package:file_manager/Services/file_operations.dart';
+import 'package:file_manager/Widgets/bottom_bar_widget.dart';
 import 'package:file_manager/Widgets/breadcrumb_widget.dart';
 import 'package:file_manager/Widgets/popup_menu_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:file_manager/Widgets/list_widget.dart';
 
 class FileExplorerScreen extends StatefulWidget {
   const FileExplorerScreen({super.key, required this.path});
@@ -18,6 +23,7 @@ class FileExplorerScreen extends StatefulWidget {
 class _FileExplorerScreenState extends State<FileExplorerScreen> {
   late String currentPath;
   List<FileSystemEntity> folderData = [];
+  List<FileSystemEntity> fileData = [];
   final _newFolderTextController = TextEditingController();
   bool isSelected = false;
   bool _isLoading = false;
@@ -32,7 +38,6 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
 
   @override
   void dispose() {
-    // TODO: implement dispose
     super.dispose();
     _newFolderTextController.dispose();
   }
@@ -45,17 +50,20 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
       final data = await Directory(path).list().toList();
       setState(() {
         currentPath = path;
-        folderData = data;
+        folderData = data.whereType<Directory>().toList();
+        fileData = data.whereType<File>().toList();
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), duration: Duration(seconds: 5)),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), duration: Duration(seconds: 5)),
+        );
+      }
     }
   }
 
@@ -80,104 +88,36 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
   }
 
   void _addContent() {
-    showDialog(
+    showAddFolderDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text("Add New Folder"),
-          content: TextField(
-            controller: _newFolderTextController,
-            decoration: InputDecoration(
-              label: Text("Folder Name"),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(5.0),
-                borderSide: BorderSide(color: Colors.black),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () async {
-                final folderName = _newFolderTextController.text;
-                final path = "$currentPath/$folderName";
-                final dir = Directory(path);
-                if (!dir.existsSync()) {
-                  await dir.create(recursive: true);
-                }
-                Navigator.pop(context);
-                _newFolderTextController.clear();
-                _loadContent(currentPath);
-              },
-              child: Text("Create"),
-            ),
-          ],
-        );
+      controller: _newFolderTextController,
+      onCreate: () async {
+        final folderName = _newFolderTextController.text;
+        final path = "$currentPath/$folderName";
+        final dir = Directory(path);
+        if (!dir.existsSync()) {
+          await dir.create(recursive: true);
+        }
+        if (context.mounted) {
+          Navigator.pop(context);
+        }
+        _newFolderTextController.clear();
+        _loadContent(currentPath);
       },
     );
   }
 
   Future<void> _showRenameDialog() async {
     final oldPath = selectedPath.first;
-    final isDir = FileSystemEntity.isDirectorySync(oldPath);
-    final oldName = oldPath.split("/").last;
-    final _renameTextController = TextEditingController(text: oldName);
-
-    showDialog(
+    await renameDialogBox(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(isDir ? "Rename Folder" : "Rename File"),
-          content: TextField(
-            controller: _renameTextController,
-            decoration: InputDecoration(
-              label: Text("Name"),
-              border: OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.black, width: 2),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () async {
-                final newName = _renameTextController.text.trim();
-                if (newName.isEmpty || newName == oldName) return;
-
-                final parentDir = Directory(oldPath).parent.path;
-                final newPath = "$parentDir/$newName";
-
-                try {
-                  final entity = isDir ? Directory(oldPath) : File(oldPath);
-                  await entity.rename(newPath);
-
-                  setState(() {
-                    selectedPath.clear();
-                    isSelected = false;
-                  });
-                  Navigator.of(context).pop();
-                  _loadContent(currentPath); // Refresh list
-                } catch (e) {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Rename failed: ${e.toString()}")),
-                  );
-                }
-              },
-              child: Text("Confirm"),
-            ),
-          ],
-        );
+      oldPath: oldPath,
+      onSuccess: () {
+        setState(() {
+          selectedPath.clear();
+          isSelected = false;
+        });
+        _loadContent(currentPath);
       },
     );
   }
@@ -220,156 +160,208 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          BreadcrumbWidget(
-            path: currentPath,
-            loadContent: (path) {
-              _navigateToFolder(path);
-            },
-          ),
-          if (_isLoading)
-            Center()
-          else if (folderData.isEmpty)
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.folder_off, size: 175.0),
-                    SizedBox(height: 10),
-                    Text(
-                      "Files Not Found",
-                      style: TextStyle(
-                        wordSpacing: 1,
-                        letterSpacing: 1,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 17,
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                BreadcrumbWidget(
+                  path: currentPath,
+                  loadContent: (path) {
+                    _navigateToFolder(path);
+                  },
+                ),
+                if (folderData.isEmpty && fileData.isEmpty) ...[
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.folder_off, size: 175.0),
+                          const SizedBox(height: 10),
+                          const Text(
+                            "Files Not Found",
+                            style: TextStyle(
+                              wordSpacing: 1,
+                              letterSpacing: 1,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 17,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            )
-          else
-            Expanded(
-              child: ListView.builder(
-                itemCount: folderData.length,
-                itemBuilder: (context, index){
-                  final file = folderData[index];
-                  final fileName = file.path.split("/").last;
-                  final isDir = FileSystemEntity.isDirectorySync(file.path);
-                  final isChecked = selectedPath.contains(file.path);
-                  return ListTile(
-                    leading: Icon(
-                      isDir ? Icons.folder : Icons.insert_drive_file,
-                    ),
-                    title: Text(fileName),
-                    trailing: isSelected
-                        ? Checkbox(
-                            value: isChecked,
-                            onChanged: (value) {
+                  ),
+                ] else
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount:
+                          (folderData.isNotEmpty ? folderData.length + 1 : 0) +
+                          (fileData.isNotEmpty ? fileData.length + 1 : 0),
+                      itemBuilder: (context, index) {
+                        int folderHeaderIndex = 0;
+                        int fileHeaderIndex = folderData.isNotEmpty
+                            ? folderData.length + 1
+                            : 0;
+
+                        if (index == folderHeaderIndex &&
+                            folderData.isNotEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.only(
+                              left: 12.0,
+                              top: 8,
+                              bottom: 0,
+                            ),
+                            child: Text(
+                              "Folders",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.indigoAccent,
+                              ),
+                            ),
+                          );
+                        } else if (index > folderHeaderIndex &&
+                            index < fileHeaderIndex) {
+                          final folder =
+                              folderData[index -
+                                  1]; // -1 because of folder heading
+                          final isChecked = selectedPath.contains(folder.path);
+
+                          return ListWidget(
+                            storageFile: folder,
+                            onTap: () {
+                              _navigateToFolder(folder.path);
+                            },
+                            onLongPress: () {
                               setState(() {
-                                if (value == true) {
-                                  selectedPath.add(file.path);
-                                } else {
-                                  selectedPath.remove(file.path);
-                                }
+                                isSelected = true;
+                                selectedPath.add(folder.path);
                               });
                             },
-                          )
-                        : null,
-                    onLongPress: () {
-                      setState(() {
-                        isSelected = true;
-                        selectedPath.add(folderData[index].path);
-                      });
-                    },
-                    onTap: () {
-                      isDir
-                          ? _navigateToFolder(file.path)
-                          : print("File Found");
-                    },
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-      bottomNavigationBar: isSelected == true
-          ? BottomAppBar(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (selectedPath.length <= 1)
-                    IconButton(
-                      onPressed: () {
-                        _showRenameDialog();
-                      },
-                      icon: Icon(Icons.drive_file_rename_outline),
-                    ),
-                  IconButton(
-                    onPressed: () async {
-                      setState(() {
-                        isSelected = false;
-                      });
-                      for (var path in selectedPath) {
-                        await FileOperations().pasteFileToDestination(
-                          true,
-                          currentPath,
-                          path,
-                        );
-                      }
-                      selectedPath.clear();
-                      _loadContent(currentPath);
-                    },
-                    icon: Icon(Icons.copy),
-                  ),
-                  SizedBox(width: 10),
-                  IconButton(
-                    onPressed: () async {
-                      setState(() {
-                        isSelected = false;
-                      });
-                      for (var path in selectedPath) {
-                        await FileOperations().pasteFileToDestination(
-                          false,
-                          currentPath,
-                          path,
-                        );
-                      }
-                      selectedPath.clear();
-                      _loadContent(currentPath);
-                    },
-                    icon: Icon(Icons.drive_file_move),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).clearSnackBars();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text("Do You Really Want To Delete?"),
-                          duration: Duration(seconds: 5),
-                          action: SnackBarAction(
-                            label: "Yes",
-                            onPressed: () async {
+                            onCheckboxChanged: (value) {
                               setState(() {
-                                isSelected = false;
+                                value == true
+                                    ? selectedPath.add(folder.path)
+                                    : selectedPath.remove(folder.path);
                               });
-                              for (var path in selectedPath) {
-                                await FileOperations().deleteOperation(path);
+                            },
+                            isChecked: isChecked,
+                            isSelected: isSelected,
+                          );
+                        } else if (index == fileHeaderIndex &&
+                            fileData.isNotEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.only(
+                              top: 8.0,
+                              left: 12.0,
+                              bottom: 0.0,
+                            ),
+                            child: Text(
+                              "Files",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.indigoAccent,
+                              ),
+                            ),
+                          );
+                        } else {
+                          final file =
+                              fileData[index -
+                                  fileHeaderIndex -
+                                  1]; // -1 for file heading
+                          final isChecked = selectedPath.contains(file.path);
+
+                          return ListWidget(
+                            storageFile: file,
+                            onTap: () {
+                              if (isSelected) {
+                                setState(() {
+                                  isChecked
+                                      ? selectedPath.remove(file.path)
+                                      : selectedPath.add(file.path);
+                                });
+                              } else {
+                                OpenFilex.open(file.path);
                               }
-                              selectedPath.clear();
-                              _loadContent(currentPath);
                             },
-                          ),
-                        ),
-                      );
-                    },
-                    icon: Icon(Icons.delete),
+                            onLongPress: () {
+                              setState(() {
+                                isSelected = true;
+                                selectedPath.add(file.path);
+                              });
+                            },
+                            onCheckboxChanged: (value) {
+                              setState(() {
+                                value == true
+                                    ? selectedPath.add(file.path)
+                                    : selectedPath.remove(file.path);
+                              });
+                            },
+                            isChecked: isChecked,
+                            isSelected: isSelected,
+                          );
+                        }
+                      },
+                    ),
                   ),
-                ],
-              ),
+              ],
+            ),
+      bottomNavigationBar: isSelected
+          ? BottomBarWidget(
+              isRenameEnabled: selectedPath.length <= 1,
+              onRename: _showRenameDialog,
+              onCopy: () async {
+                setState(() {
+                  isSelected = false;
+                });
+                for (var path in selectedPath) {
+                  await FileOperations().pasteFileToDestination(
+                    true,
+                    currentPath,
+                    path,
+                  );
+                }
+                selectedPath.clear();
+                _loadContent(currentPath);
+              },
+              onMove: () async {
+                setState(() {
+                  isSelected = false;
+                });
+                for (var path in selectedPath) {
+                  await FileOperations().pasteFileToDestination(
+                    false,
+                    currentPath,
+                    path,
+                  );
+                }
+                selectedPath.clear();
+                _loadContent(currentPath);
+              },
+              onDelete: () {
+                ScaffoldMessenger.of(context).clearSnackBars();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("Do You Really Want To Delete?"),
+                    duration: Duration(seconds: 5),
+                    action: SnackBarAction(
+                      label: "Yes",
+                      onPressed: () async {
+                        setState(() {
+                          isSelected = false;
+                        });
+                        for (var path in selectedPath) {
+                          await FileOperations().deleteOperation(path);
+                        }
+                        selectedPath.clear();
+                        _loadContent(currentPath);
+                      },
+                    ),
+                  ),
+                );
+              },
             )
           : null,
     );
