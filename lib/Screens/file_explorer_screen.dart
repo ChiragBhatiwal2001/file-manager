@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:file_manager/Utils/shared_preference.dart';
+import 'package:file_manager/Widgets/filter_popup_menu_widget.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:file_manager/Helpers/add_folder_dialog.dart';
 import 'package:file_manager/Helpers/rename_dialog.dart';
@@ -27,19 +29,33 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
   final _newFolderTextController = TextEditingController();
   bool isSelected = false;
   bool _isLoading = false;
+  String filterItem = "name-asc";
+  bool _haveFilter = false;
   Set<String> selectedPath = {};
 
   @override
   void initState() {
     super.initState();
-    currentPath = widget.path;
-    _loadContent(currentPath);
+    _loadFilterPreference();
   }
 
   @override
   void dispose() {
     super.dispose();
     _newFolderTextController.dispose();
+  }
+
+  Future<void> _loadFilterPreference() async {
+    await SharedPrefsService.instance.init();
+    final savedFilter = SharedPrefsService.instance.getString("sort_filter");
+    if (savedFilter != null) {
+      setState(() {
+        filterItem = savedFilter;
+        _haveFilter = true;
+      });
+    }
+    currentPath = widget.path;
+    _loadContent(currentPath);
   }
 
   void _loadContent(String path) async {
@@ -52,6 +68,7 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
         currentPath = path;
         folderData = data.whereType<Directory>().toList();
         fileData = data.whereType<File>().toList();
+        _haveFilter ? _sortFileAndFolder() : null;
         _isLoading = false;
       });
     } catch (e) {
@@ -122,6 +139,42 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
     );
   }
 
+  void _sortFileAndFolder() {
+    switch (filterItem) {
+      case "name-asc":
+        folderData.sort(
+          (a, b) => a.path.toLowerCase().compareTo(b.path.toLowerCase()),
+        );
+        fileData.sort(
+          (a, b) => a.path.toLowerCase().compareTo(b.path.toLowerCase()),
+        );
+        break;
+      case "name-desc":
+        folderData.sort(
+          (a, b) => b.path.toLowerCase().compareTo(a.path.toLowerCase()),
+        );
+        fileData.sort(
+          (a, b) => b.path.toLowerCase().compareTo(a.path.toLowerCase()),
+        );
+        break;
+      case "size":
+        fileData.sort((a, b) {
+          final aSize = File(a.path).lengthSync();
+          final bSize = File(b.path).lengthSync();
+          return bSize.compareTo(aSize); // Largest file first
+        });
+        break;
+    }
+  }
+
+  void _filterChanged(String value) async {
+    setState(() {
+      filterItem = value;
+      _sortFileAndFolder();
+    });
+    await SharedPrefsService.instance.setString("sort_filter", value);
+  }
+
   @override
   Widget build(BuildContext context) {
     String currentFolderName = currentPath == widget.path
@@ -139,6 +192,31 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
           onPressed: () {
             _goBackToParentPath();
           },
+        ),
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(48.0),
+          child: Column(
+            children: [
+              BreadcrumbWidget(
+                path: currentPath,
+                loadContent: (path) {
+                  _navigateToFolder(path);
+                },
+              ),
+              Row(
+                children: [
+                  Spacer(),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: FilterPopupMenuWidget(
+                      filterValue: filterItem,
+                      onChanged: _filterChanged,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         actions: [
           PopupMenuWidget(
@@ -165,12 +243,6 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
           : Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                BreadcrumbWidget(
-                  path: currentPath,
-                  loadContent: (path) {
-                    _navigateToFolder(path);
-                  },
-                ),
                 if (folderData.isEmpty && fileData.isEmpty) ...[
                   Expanded(
                     child: Center(

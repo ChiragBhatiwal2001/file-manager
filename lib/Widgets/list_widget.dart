@@ -91,7 +91,7 @@ class _ListWidgetState extends State<ListWidget> {
               padding: const EdgeInsets.only(right: 8.0),
               child: Row(
                 children: [
-                  Text("$filesCount items"),
+                  Text("${filesCount ?? "-"} items"),
                   SizedBox(width: 5,),
                   Text("|"),
                   SizedBox(width: 5,),
