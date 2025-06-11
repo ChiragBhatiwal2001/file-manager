@@ -38,6 +38,8 @@ dependencies:
   external_path: ^2.2.0
   open_filex: ^4.0.2
   shared_preferences:
+  media_scanner: ^2.0.0
+
 
 
 dev_dependencies:

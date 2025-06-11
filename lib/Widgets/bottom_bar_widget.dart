@@ -3,16 +3,16 @@ import 'package:flutter/material.dart';
 class BottomBarWidget extends StatelessWidget {
   final bool isRenameEnabled;
   final VoidCallback onRename;
-  final VoidCallback onCopy;
-  final VoidCallback onMove;
+  final VoidCallback? onCopy;
+  final VoidCallback? onMove;
   final VoidCallback onDelete;
 
   const BottomBarWidget({
     super.key,
     required this.isRenameEnabled,
     required this.onRename,
-    required this.onCopy,
-    required this.onMove,
+    this.onCopy,
+    this.onMove,
     required this.onDelete,
   });
 

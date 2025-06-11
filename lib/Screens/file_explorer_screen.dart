@@ -194,8 +194,10 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
           },
         ),
         bottom: PreferredSize(
-          preferredSize: Size.fromHeight(48.0),
+          preferredSize: Size.fromHeight(38.0),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               BreadcrumbWidget(
                 path: currentPath,
@@ -203,17 +205,25 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
                   _navigateToFolder(path);
                 },
               ),
-              Row(
-                children: [
-                  Spacer(),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: FilterPopupMenuWidget(
-                      filterValue: filterItem,
-                      onChanged: _filterChanged,
+              if(folderData.isNotEmpty || fileData.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Row(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: Text("${(folderData.length + fileData.length).toString()} items in total",style: TextStyle(fontWeight: FontWeight.bold),),
                     ),
-                  ),
-                ],
+                    Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: FilterPopupMenuWidget(
+                        filterValue: filterItem,
+                        onChanged: _filterChanged,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -252,7 +262,7 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
                           const Icon(Icons.folder_off, size: 175.0),
                           const SizedBox(height: 10),
                           const Text(
-                            "Files Not Found",
+                            "Nothing is in Directory",
                             style: TextStyle(
                               wordSpacing: 1,
                               letterSpacing: 1,

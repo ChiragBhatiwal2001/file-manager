@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:media_scanner/media_scanner.dart';
+import 'package:file_manager/Services/recycler_bin.dart';
 
 class FileOperations {
   Set<String> selectedPath = {};
@@ -49,11 +51,6 @@ class FileOperations {
   }
 
   Future<void> deleteOperation(String filePath) async {
-    final type = FileSystemEntity.typeSync(filePath);
-    if (type == FileSystemEntityType.directory) {
-      await Directory(filePath).delete(recursive: true);
-    } else if (type == FileSystemEntityType.file) {
-      await File(filePath).delete();
-    }
+    await RecentlyDeletedManager().deleteToTrash(filePath);
   }
 }
