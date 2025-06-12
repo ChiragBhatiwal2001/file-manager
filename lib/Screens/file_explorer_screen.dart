@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:file_manager/Services/sqflite_favorites.dart';
 import 'package:file_manager/Utils/shared_preference.dart';
 import 'package:file_manager/Widgets/filter_popup_menu_widget.dart';
 import 'package:open_filex/open_filex.dart';
@@ -32,6 +33,7 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
   String filterItem = "name-asc";
   bool _haveFilter = false;
   Set<String> selectedPath = {};
+  bool isFavorite = false;
 
   @override
   void initState() {
@@ -175,6 +177,32 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
     await SharedPrefsService.instance.setString("sort_filter", value);
   }
 
+  Future<void> _handleFavorite() async {
+    final path = selectedPath.first;
+    final db = FavoritesDB();
+    final currentlyFavorite = await db.isFavorite(path);
+    final isFolder = FileSystemEntity.isDirectorySync(path);
+
+    if (currentlyFavorite) {
+      await db.removeFavorite(path);
+      isFavorite = false;
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Removed From Favorites")));
+    } else {
+      await db.addFavorite(path, isFolder);
+      isFavorite = true;
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Added To Favorites")));
+    }
+    setState(() {
+      isSelected = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     String currentFolderName = currentPath == widget.path
@@ -205,26 +233,29 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
                   _navigateToFolder(path);
                 },
               ),
-              if(folderData.isNotEmpty || fileData.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: Row(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8.0),
-                      child: Text("${(folderData.length + fileData.length).toString()} items in total",style: TextStyle(fontWeight: FontWeight.bold),),
-                    ),
-                    Spacer(),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: FilterPopupMenuWidget(
-                        filterValue: filterItem,
-                        onChanged: _filterChanged,
+              if (folderData.isNotEmpty || fileData.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Row(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: Text(
+                          "${(folderData.length + fileData.length).toString()} items in total",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
-                    ),
-                  ],
+                      Spacer(),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: FilterPopupMenuWidget(
+                          filterValue: filterItem,
+                          onChanged: _filterChanged,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -444,6 +475,10 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
                   ),
                 );
               },
+              isFavorite: selectedPath.length == 1 ? isFavorite : null,
+              onFavoriteClicked: selectedPath.length == 1
+                  ? _handleFavorite
+                  : null,
             )
           : null,
     );

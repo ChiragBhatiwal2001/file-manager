@@ -39,8 +39,9 @@ dependencies:
   open_filex: ^4.0.2
   shared_preferences:
   media_scanner: ^2.0.0
-
-
+  sqflite:
+  path_provider:
+  path:
 
 dev_dependencies:
   flutter_test:

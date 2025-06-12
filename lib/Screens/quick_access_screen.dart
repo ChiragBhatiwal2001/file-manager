@@ -1,7 +1,12 @@
+import 'dart:io';
+
 import 'package:file_manager/Helpers/rename_dialog.dart';
 import 'package:file_manager/Services/file_operations.dart';
 import 'package:file_manager/Services/media_scanner.dart';
+import 'package:file_manager/Services/sqflite_favorites.dart';
+import 'package:file_manager/Utils/shared_preference.dart';
 import 'package:file_manager/Widgets/bottom_bar_widget.dart';
+import 'package:file_manager/Widgets/filter_popup_menu_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 
@@ -19,10 +24,14 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
   bool _isLoading = false;
   bool _isSelected = false;
   Set<String> selectedPaths = {};
+  bool isFavorite = false;
+  String filterItem = '';
+  bool _haveFilter = false;
 
   @override
   void initState() {
     super.initState();
+    _loadFilterPreference();
     _getDataForDisplay();
   }
 
@@ -36,7 +45,7 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
       // Update UI
       setState(() {
         data = categorized[widget.category] ?? [];
-
+        _haveFilter ? _sortFileAndFolder() : null;
         _isLoading = false;
       });
     } catch (e) {
@@ -55,7 +64,7 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
           selectedPaths.clear();
           _isSelected = false;
         });
-       await _getDataForDisplay();
+        await _getDataForDisplay();
       },
     );
   }
@@ -71,6 +80,75 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
     await MediaScanner.scanAllMedia();
     await _getDataForDisplay();
     setState(() {});
+  }
+
+  Future<void> _handleFavorite() async {
+    final path = selectedPaths.first;
+    final db = FavoritesDB();
+    final currentlyFavorite = await db.isFavorite(path);
+    final isFolder = FileSystemEntity.isDirectorySync(path);
+
+    if (currentlyFavorite) {
+      await db.removeFavorite(path);
+      isFavorite = false;
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Removed From Favorites")));
+    } else {
+      await db.addFavorite(path, isFolder);
+      isFavorite = true;
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Added To Favorites")));
+    }
+    setState(() {
+      _isSelected = false;
+    });
+  }
+
+  Future<void> _loadFilterPreference() async {
+    await SharedPrefsService.instance.init();
+    final savedFilter = SharedPrefsService.instance.getString("sort_filter");
+    if (savedFilter != null) {
+      setState(() {
+        filterItem = savedFilter;
+        _haveFilter = true;
+      });
+    }
+    // currentPath = widget.path;
+    // _loadContent(currentPath);
+  }
+
+  void _sortFileAndFolder() {
+    switch (filterItem) {
+      case "name-asc":
+        data.sort(
+          (a, b) => a.path.toLowerCase().compareTo(b.path.toLowerCase()),
+        );
+        break;
+      case "name-desc":
+        data.sort(
+          (a, b) => b.path.toLowerCase().compareTo(a.path.toLowerCase()),
+        );
+        break;
+      case "size":
+        data.sort((a, b) {
+          final aSize = File(a.path).lengthSync();
+          final bSize = File(b.path).lengthSync();
+          return bSize.compareTo(aSize); // Largest file first
+        });
+        break;
+    }
+  }
+
+  void _filterChanged(String value) async {
+    setState(() {
+      filterItem = value;
+      _sortFileAndFolder();
+    });
+    await SharedPrefsService.instance.setString("sort_filter", value);
   }
 
   @override
@@ -104,8 +182,9 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
         bottom: _isLoading
             ? null
             : PreferredSize(
-                preferredSize: Size.fromHeight(24.0),
+                preferredSize: Size.fromHeight(34.0),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
                     Padding(
                       padding: const EdgeInsets.only(left: 8.0, bottom: 5.0),
@@ -115,6 +194,13 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
                       ),
                     ),
                     Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: FilterPopupMenuWidget(
+                        filterValue: filterItem,
+                        onChanged: _filterChanged,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -137,19 +223,28 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
                 return ListTile(
                   leading: Icon(_getIconForMedia(file.type)),
                   title: Text(fileName),
-                  trailing: _isSelected ? Checkbox(value: isChecked, onChanged: (value){
-                    setState(() {
-                      value == true ?
-                      selectedPaths.add(file.path) : selectedPaths.remove(file.path);
-                    });
-                  }) : null,
+                  trailing: _isSelected
+                      ? Checkbox(
+                          value: isChecked,
+                          onChanged: (value) {
+                            setState(() {
+                              value == true
+                                  ? selectedPaths.add(file.path)
+                                  : selectedPaths.remove(file.path);
+                            });
+                          },
+                        )
+                      : null,
                   subtitle: Text(
                     file.path,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  onTap: () {
-                    OpenFilex.open(file.path);
+                  onTap: () async {
+                    final result = await OpenFilex.open(file.path);
+                    print(
+                      "OpenFliex result : ${result.type}, message: ${result.message}",
+                    );
                   },
                   onLongPress: () {
                     setState(() {
@@ -180,6 +275,10 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
                   ),
                 );
               },
+              isFavorite: selectedPaths.length == 1 ? isFavorite : null,
+              onFavoriteClicked: selectedPaths.length == 1
+                  ? _handleFavorite
+                  : null,
             )
           : null,
     );

@@ -79,7 +79,7 @@ class MediaScanner {
 
   /// Scans both internal and external storage directories
   static Future<Map<MediaType, List<MediaFile>>> scanAllMedia() async {
-    final rootDir = Directory("/storage/emulated/0");
+    final rootDir = Directory("/storage/emulated/0");// TODO - Have to change this static path
 
     Map<MediaType, List<MediaFile>> categorized = {
       MediaType.image: [],

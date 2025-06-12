@@ -1,7 +1,9 @@
 import 'package:external_path/external_path.dart';
+import 'package:file_manager/Screens/favorite_screen.dart';
 import 'package:file_manager/Screens/file_explorer_screen.dart';
 import 'package:file_manager/Screens/quick_access_screen.dart';
 import 'package:file_manager/Screens/recently_deleted_screen.dart';
+import 'package:file_manager/Services/recent_added_screen.dart';
 import 'package:file_manager/Services/recycler_bin.dart';
 import 'package:flutter/material.dart';
 import 'package:file_manager/Services/media_scanner.dart';
@@ -25,62 +27,15 @@ class _HomeScreenState extends State<HomeScreen> {
     RecentlyDeletedManager().init();
   }
 
-  Future<bool> _requestPermission() async {
-    if (await Permission.manageExternalStorage.isGranted) {
-      return true;
-    }
-
-    if (await Permission.manageExternalStorage.isDenied) {
-      final status = await Permission.manageExternalStorage.request();
-      if (status.isGranted) return true;
-      if (status.isPermanentlyDenied) {
-        await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('Permission Required'),
-            content: Text(
-              'Please grant "All files access" in app settings to use the file manager.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text('OK'),
-              ),
-            ],
-          ),
-        );
-        await openAppSettings();
-        return false;
-      }
-      return false;
-    }
-
-    if (await Permission.storage.isDenied) {
-      final status = await Permission.storage.request();
-      if (status.isGranted) return true;
-      if (status.isPermanentlyDenied) {
-        await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('Permission Required'),
-            content: Text(
-              'Please grant storage permission in app settings to use the file manager.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text('OK'),
-              ),
-            ],
-          ),
-        );
-        await openAppSettings();
-        return false;
-      }
-      return false;
-    }
-
-    return true;
+  Future<bool> _requestAllMediaPermissions() async {
+    final permissions = [
+      Permission.manageExternalStorage,
+      Permission.photos,
+      Permission.videos,
+      Permission.audio,
+    ];
+    final statuses = await permissions.request();
+    return statuses.values.every((status) => status.isGranted);
   }
 
   Future<void> getStoragePath() async {
@@ -115,8 +70,12 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           GestureDetector(
             onTap: () async {
-              final isGranted = await _requestPermission();
+              final isGranted = await _requestAllMediaPermissions();
               if (!isGranted) {
+                ScaffoldMessenger.of(context).clearSnackBars();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Please grant all permissions to continue.'),duration: Duration(seconds: 2),),
+                );
                 return;
               }
               await getStoragePath();
@@ -155,8 +114,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.all(6.0),
                   child: GestureDetector(
                     onTap: ()async{
-                      final isGranted = await _requestPermission();
+                      final isGranted = await _requestAllMediaPermissions();
                       if (!isGranted) {
+                        ScaffoldMessenger.of(context).clearSnackBars();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Please grant all permissions to continue.')),
+                        );
                         return;
                       }
                       await getStoragePath();
@@ -179,8 +142,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           GestureDetector(
             onTap: () async {
-              final isGranted = await _requestPermission();
+              final isGranted = await _requestAllMediaPermissions();
               if (!isGranted) {
+                ScaffoldMessenger.of(context).clearSnackBars();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Please grant all permissions to continue.')),
+                );
                 return;
               }
               await getStoragePath();
@@ -214,6 +181,48 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
+          //going to change
+          GestureDetector(
+            onTap: () async {
+              final isGranted = await _requestAllMediaPermissions();
+              if (!isGranted) {
+                ScaffoldMessenger.of(context).clearSnackBars();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Please grant all permissions to continue.')),
+                );
+                return;
+              }
+              await getStoragePath();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const RecentAddedScreen(),//dbviwduiuwbidubiwe
+                ),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Container(
+                height: 50,
+                decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(5.0),
+                    border: Border.all(
+                        color: Colors.black,
+                        width: 1
+                    )
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.favorite),
+                    SizedBox(width: 4,),
+                    Text("Favorites",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 16),),
+                    const Spacer(),
+                    Icon(Icons.arrow_forward_ios_sharp),
+                  ],
+                ),
+              ),
+            ),
+          )
         ],
       ),
     );
