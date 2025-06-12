@@ -74,7 +74,10 @@ class _HomeScreenState extends State<HomeScreen> {
               if (!isGranted) {
                 ScaffoldMessenger.of(context).clearSnackBars();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Please grant all permissions to continue.'),duration: Duration(seconds: 2),),
+                  SnackBar(
+                    content: Text('Please grant all permissions to continue.'),
+                    duration: Duration(seconds: 2),
+                  ),
                 );
                 return;
               }
@@ -89,14 +92,17 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Padding(
               padding: const EdgeInsets.all(8.0),
               child: Container(
-                padding: EdgeInsets.only(left: 8.0,top: 5.0),
+                padding: EdgeInsets.only(left: 8.0, top: 5.0),
                 width: double.infinity,
                 height: 100,
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.black, width: 2),
                   borderRadius: BorderRadius.circular(5.0),
                 ),
-                child: Text("Internal Storage",style: TextStyle(fontWeight: FontWeight.bold),),
+                child: Text(
+                  "Internal Storage",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ),
@@ -113,17 +119,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 return Padding(
                   padding: const EdgeInsets.all(6.0),
                   child: GestureDetector(
-                    onTap: ()async{
+                    onTap: () async {
                       final isGranted = await _requestAllMediaPermissions();
                       if (!isGranted) {
                         ScaffoldMessenger.of(context).clearSnackBars();
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Please grant all permissions to continue.')),
+                          SnackBar(
+                            content: Text(
+                              'Please grant all permissions to continue.',
+                            ),
+                          ),
                         );
                         return;
                       }
                       await getStoragePath();
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => QuickAccessScreen(category: media.key),));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              QuickAccessScreen(category: media.key),
+                        ),
+                      );
                     },
                     child: Card(
                       child: Column(
@@ -140,89 +156,155 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
           ),
-          GestureDetector(
-            onTap: () async {
-              final isGranted = await _requestAllMediaPermissions();
-              if (!isGranted) {
-                ScaffoldMessenger.of(context).clearSnackBars();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Please grant all permissions to continue.')),
-                );
-                return;
-              }
-              await getStoragePath();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const RecentlyDeletedScreen(),
-                ),
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Container(
-                height: 50,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(5.0),
-                  border: Border.all(
-                    color: Colors.black,
-                    width: 1
-                  )
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.delete),
-                    SizedBox(width: 4,),
-                    Text("Recently Deleted",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 16),),
-                    const Spacer(),
-                    Icon(Icons.arrow_forward_ios_sharp),
-                  ],
-                ),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.black, width: 1.5),
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: Column(
+                children: [
+                  // Recently Deleted
+                  InkWell(
+                    onTap: () async {
+                      final isGranted = await _requestAllMediaPermissions();
+                      if (!isGranted) {
+                        ScaffoldMessenger.of(context).clearSnackBars();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Please grant all permissions to continue.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      await getStoragePath();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const FavoriteScreen(),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      height: 60,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Row(
+                        children: [
+                          Icon(Icons.favorite),
+                          SizedBox(width: 8),
+                          Text(
+                            "Favorites",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Spacer(),
+                          Icon(Icons.arrow_forward_ios_sharp, size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  Divider(height: 1, color: Colors.grey),
+
+                  // Favorites
+                  InkWell(
+                    onTap: () async {
+                      final isGranted = await _requestAllMediaPermissions();
+                      if (!isGranted) {
+                        ScaffoldMessenger.of(context).clearSnackBars();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Please grant all permissions to continue.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      await getStoragePath();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const RecentAddedScreen(),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      height: 60,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Row(
+                        children: [
+                          Icon(Icons.file_download_sharp),
+                          SizedBox(width: 8),
+                          Text(
+                            "Recent Files",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Spacer(),
+                          Icon(Icons.arrow_forward_ios_sharp, size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  Divider(height: 1, color: Colors.grey),
+
+                  // Favorites
+                  InkWell(
+                    onTap: () async {
+                      final isGranted = await _requestAllMediaPermissions();
+                      if (!isGranted) {
+                        ScaffoldMessenger.of(context).clearSnackBars();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Please grant all permissions to continue.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      await getStoragePath();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const RecentlyDeletedScreen(),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      height: 60,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete),
+                          SizedBox(width: 8),
+                          Text(
+                            "Recycler Bin",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Spacer(),
+                          Icon(Icons.arrow_forward_ios_sharp, size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          //going to change
-          GestureDetector(
-            onTap: () async {
-              final isGranted = await _requestAllMediaPermissions();
-              if (!isGranted) {
-                ScaffoldMessenger.of(context).clearSnackBars();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Please grant all permissions to continue.')),
-                );
-                return;
-              }
-              await getStoragePath();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const RecentAddedScreen(),//dbviwduiuwbidubiwe
-                ),
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Container(
-                height: 50,
-                decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(5.0),
-                    border: Border.all(
-                        color: Colors.black,
-                        width: 1
-                    )
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.favorite),
-                    SizedBox(width: 4,),
-                    Text("Favorites",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 16),),
-                    const Spacer(),
-                    Icon(Icons.arrow_forward_ios_sharp),
-                  ],
-                ),
-              ),
-            ),
-          )
         ],
       ),
     );
