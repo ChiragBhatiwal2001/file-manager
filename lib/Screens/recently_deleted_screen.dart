@@ -52,7 +52,7 @@ class _RecentlyDeletedScreenState extends State<RecentlyDeletedScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          "Recently Deleted",
+          "Recycler Bin",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         titleSpacing: 0,

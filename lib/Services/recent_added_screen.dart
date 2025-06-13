@@ -57,7 +57,8 @@ class _RecentAddedScreenState extends State<RecentAddedScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Recently Added"),
+        title: Text("Recently Added",style: TextStyle(fontWeight: FontWeight.bold),),
+        titleSpacing: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
           onPressed: () {
@@ -67,7 +68,7 @@ class _RecentAddedScreenState extends State<RecentAddedScreen> {
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
-          : GridView.builder(
+          : categorizedRecent.isNotEmpty ? GridView.builder(
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
               ),
@@ -99,7 +100,7 @@ class _RecentAddedScreenState extends State<RecentAddedScreen> {
                   ),
                 );
               },
-            ),
+            ) : Center(child: Text("No Recent Files Found",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 18),),),
     );
   }
 }

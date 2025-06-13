@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'package:file_manager/Screens/search_screen.dart';
+import 'package:file_manager/Services/shared_preference.dart';
 import 'package:file_manager/Services/sqflite_favorites.dart';
-import 'package:file_manager/Utils/shared_preference.dart';
+import 'package:file_manager/Widgets/bottom_sheet_paste_operation.dart';
 import 'package:file_manager/Widgets/filter_popup_menu_widget.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:file_manager/Helpers/add_folder_dialog.dart';
@@ -38,6 +40,7 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
   @override
   void initState() {
     super.initState();
+    currentPath = widget.path;
     _loadFilterPreference();
   }
 
@@ -260,6 +263,17 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            onPressed: () async {
+              showModalBottomSheet(
+                context: context,
+                useSafeArea: true,
+                isScrollControlled: true,
+                builder: (context) => SearchScreen(widget.path),
+              );
+            },
+            icon: Icon(Icons.search),
+          ),
           PopupMenuWidget(
             popupList: ["Create Folder"],
             addContent: _addContent,
@@ -426,31 +440,45 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
               isRenameEnabled: selectedPath.length <= 1,
               onRename: _showRenameDialog,
               onCopy: () async {
+                await showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  builder: (context) => BottomSheetForPasteOperation(
+                    selectedPaths: selectedPath,
+                    isCopy: true,
+                  ),
+                );
                 setState(() {
                   isSelected = false;
                 });
-                for (var path in selectedPath) {
-                  await FileOperations().pasteFileToDestination(
-                    true,
-                    currentPath,
-                    path,
-                  );
-                }
-                selectedPath.clear();
                 _loadContent(currentPath);
               },
               onMove: () async {
+                // setState(() {
+                //   isSelected = false;
+                // });
+                // for (var path in selectedPath) {
+                //   await FileOperations().pasteFileToDestination(
+                //     false,
+                //     currentPath,
+                //     path,
+                //   );
+                // }
+                // selectedPath.clear();
+                // _loadContent(currentPath);
+                await showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  builder: (context) => BottomSheetForPasteOperation(
+                    selectedPaths: selectedPath,
+                    isCopy: false,
+                  ),
+                );
                 setState(() {
                   isSelected = false;
                 });
-                for (var path in selectedPath) {
-                  await FileOperations().pasteFileToDestination(
-                    false,
-                    currentPath,
-                    path,
-                  );
-                }
-                selectedPath.clear();
                 _loadContent(currentPath);
               },
               onDelete: () {

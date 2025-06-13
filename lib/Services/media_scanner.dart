@@ -39,6 +39,7 @@ class MediaScanner {
     final restrictedFolders = [
       '/storage/emulated/0/Android/data',
       '/storage/emulated/0/Android/obb',
+      '/storage/emulated/0/.file_manager_trash'
     ];
 
     try {

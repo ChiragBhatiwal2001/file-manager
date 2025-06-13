@@ -6,17 +6,17 @@ class ListWidget extends StatefulWidget {
   const ListWidget({
     super.key,
     required this.storageFile,
-    required this.isSelected,
-    required this.isChecked,
-    required this.onLongPress,
+    this.isSelected,
+    this.isChecked,
+    this.onLongPress,
     required this.onTap,
     this.onCheckboxChanged,
   });
 
   final FileSystemEntity storageFile;
-  final bool isSelected;
-  final bool isChecked;
-  final void Function() onLongPress;
+  final bool? isSelected;
+  final bool? isChecked;
+  final void Function()? onLongPress;
   final void Function() onTap;
   final ValueChanged<bool?>? onCheckboxChanged;
 
@@ -100,7 +100,7 @@ class _ListWidgetState extends State<ListWidget> {
               ),
             )
           : null,
-      trailing: widget.isSelected
+      trailing: widget.isSelected == true
           ? Checkbox(
               value: widget.isChecked,
               onChanged: widget.onCheckboxChanged,

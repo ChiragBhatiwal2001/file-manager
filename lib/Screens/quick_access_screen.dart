@@ -1,18 +1,20 @@
 import 'dart:io';
 
 import 'package:file_manager/Helpers/rename_dialog.dart';
+import 'package:file_manager/Screens/search_screen.dart';
 import 'package:file_manager/Services/file_operations.dart';
 import 'package:file_manager/Services/media_scanner.dart';
+import 'package:file_manager/Services/shared_preference.dart';
 import 'package:file_manager/Services/sqflite_favorites.dart';
-import 'package:file_manager/Utils/shared_preference.dart';
 import 'package:file_manager/Widgets/bottom_bar_widget.dart';
 import 'package:file_manager/Widgets/filter_popup_menu_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 
 class QuickAccessScreen extends StatefulWidget {
-  const QuickAccessScreen({super.key, required this.category});
+  const QuickAccessScreen({super.key, required this.category,required this.storagePath});
 
+  final String storagePath;
   final MediaType category;
 
   @override
@@ -161,6 +163,9 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(onPressed: () async {
+            showModalBottomSheet(context: context,useSafeArea: true,isScrollControlled: true, builder: (context) => SearchScreen(widget.storagePath),);
+          }, icon: Icon(Icons.search)),
           if (_isSelected)
             TextButton(
               onPressed: () {
@@ -181,7 +186,7 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
         ),
         bottom: _isLoading
             ? null
-            : PreferredSize(
+            : data.isNotEmpty ? PreferredSize(
                 preferredSize: Size.fromHeight(34.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.start,
@@ -203,7 +208,7 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
                     ),
                   ],
                 ),
-              ),
+              ) : null,
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
