@@ -65,9 +65,16 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
         setState(() {
           selectedPaths.clear();
           _isSelected = false;
+          _getDataForDisplay();
         });
-        await _getDataForDisplay();
+
       },
+      onIdleCondition: (){
+        setState(() {
+          selectedPaths.clear();
+          _isSelected = false;
+        });
+      }
     );
   }
 
@@ -188,25 +195,27 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
             ? null
             : data.isNotEmpty ? PreferredSize(
                 preferredSize: Size.fromHeight(34.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8.0, bottom: 5.0),
-                      child: Text(
-                        "${data.length.toString()} items in total",
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                child: Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8.0, bottom: 5.0),
+                        child: Text(
+                          "${data.length.toString()} items in total",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
-                    ),
-                    Spacer(),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: FilterPopupMenuWidget(
-                        filterValue: filterItem,
-                        onChanged: _filterChanged,
+                      Spacer(),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: FilterPopupMenuWidget(
+                          filterValue: filterItem,
+                          onChanged: _filterChanged,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ) : null,
       ),

@@ -27,7 +27,7 @@ class FilterPopupMenuWidget extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            items[filterValue]!,
+            items[filterValue].toString(),
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           const Icon(Icons.arrow_drop_down),

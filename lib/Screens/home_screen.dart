@@ -10,8 +10,8 @@ import 'package:file_manager/Widgets/container_home_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:file_manager/Services/media_scanner.dart';
 import 'package:file_manager/Utils/constant.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:io';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,6 +24,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String? internalStorage;
+  static const _channel = MethodChannel('com.example.file_manager/storage');
 
   @override
   void initState() {
@@ -39,21 +40,16 @@ class _HomeScreenState extends State<HomeScreen> {
       Permission.audio,
     ];
     final statuses = await permissions.request();
-    return statuses.values.every((status) => status.isGranted);
+
+    return  statuses.values.every((status) => status.isGranted);
   }
 
   Future<void> getStoragePath() async {
-    if(Platform.)
-    final internalStoragePath =
-        await ExternalPath.getExternalStorageDirectories();
-    for (var storage in internalStoragePath!) {
-      if (storage.contains("emulated")) {
-        internalStorage = storage;
-        Constant.internalPath = internalStorage!;
-        break;
-      }
-    }
+    final path = await _channel.invokeMethod<String>('getInternalStoragePath');
+    internalStorage = path;
+    Constant.internalPath = internalStorage!;
   }
+
 
   void checkForPermissions() async {
     final isGranted = await _requestAllMediaPermissions();
@@ -64,7 +60,6 @@ class _HomeScreenState extends State<HomeScreen> {
           SnackBar(content: Text('Please grant all permissions to continue.')),
         );
       }
-
       return;
     }
   }

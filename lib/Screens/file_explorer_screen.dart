@@ -114,17 +114,43 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
       context: context,
       controller: _newFolderTextController,
       onCreate: () async {
-        final folderName = _newFolderTextController.text;
+        final folderName = _newFolderTextController.text.trim();
         final path = "$currentPath/$folderName";
         final dir = Directory(path);
-        if (!dir.existsSync()) {
-          await dir.create(recursive: true);
+
+        if (dir.existsSync()) {
+          _newFolderTextController.clear();
+
+          // First close the 'add folder' dialog
+          if (context.mounted) Navigator.pop(context);
+
+          // Then show the alert
+          if (context.mounted) {
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                content: const Text("A folder with this name already exists."),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context), // closes alert
+                    child: const Text("Close"),
+                  ),
+                ],
+              ),
+            );
+          }
+          return;
         }
-        if (context.mounted) {
-          Navigator.pop(context);
-        }
+
+        // Create the directory
+        await dir.create(recursive: true);
         _newFolderTextController.clear();
+
+        // Refresh folder list
         _loadContent(currentPath);
+
+        // Close the 'add folder' dialog
+        if (context.mounted) Navigator.pop(context);
       },
     );
   }
@@ -138,46 +164,61 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
         setState(() {
           selectedPath.clear();
           isSelected = false;
+          _loadContent(currentPath);
         });
-        _loadContent(currentPath);
+      },
+      onIdleCondition: () {
+        setState(() {
+          selectedPath.clear();
+          isSelected = false;
+        });
       },
     );
   }
 
   void _sortFileAndFolder() {
-    switch (filterItem) {
-      case "name-asc":
+    final parts = filterItem.split('-');
+    final sortBy = parts[0];
+    final sortOrder = parts.length > 1 ? parts[1] : 'asc';
+
+    int compare(String a, String b) =>
+        sortOrder == 'asc' ? a.compareTo(b) : b.compareTo(a);
+
+    switch (sortBy) {
+      case "name":
         folderData.sort(
-          (a, b) => a.path.toLowerCase().compareTo(b.path.toLowerCase()),
+              (a, b) => compare(a.path.toLowerCase(), b.path.toLowerCase()),
         );
         fileData.sort(
-          (a, b) => a.path.toLowerCase().compareTo(b.path.toLowerCase()),
-        );
-        break;
-      case "name-desc":
-        folderData.sort(
-          (a, b) => b.path.toLowerCase().compareTo(a.path.toLowerCase()),
-        );
-        fileData.sort(
-          (a, b) => b.path.toLowerCase().compareTo(a.path.toLowerCase()),
+              (a, b) => compare(a.path.toLowerCase(), b.path.toLowerCase()),
         );
         break;
       case "size":
         fileData.sort((a, b) {
           final aSize = File(a.path).lengthSync();
           final bSize = File(b.path).lengthSync();
-          return bSize.compareTo(aSize); // Largest file first
+          return sortOrder == 'asc'
+              ? aSize.compareTo(bSize)
+              : bSize.compareTo(aSize);
+        });
+        break;
+      case "modified":
+        folderData.sort((a, b) {
+          final aTime = File(a.path).statSync().modified;
+          final bTime = File(b.path).statSync().modified;
+          return sortOrder == 'asc'
+              ? aTime.compareTo(bTime)
+              : bTime.compareTo(aTime);
+        });
+        fileData.sort((a, b) {
+          final aTime = File(a.path).statSync().modified;
+          final bTime = File(b.path).statSync().modified;
+          return sortOrder == 'asc'
+              ? aTime.compareTo(bTime)
+              : bTime.compareTo(aTime);
         });
         break;
     }
-  }
-
-  void _filterChanged(String value) async {
-    setState(() {
-      filterItem = value;
-      _sortFileAndFolder();
-    });
-    await SharedPrefsService.instance.setString("sort_filter", value);
   }
 
   Future<void> _handleFavorite() async {
@@ -230,11 +271,14 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              BreadcrumbWidget(
-                path: currentPath,
-                loadContent: (path) {
-                  _navigateToFolder(path);
-                },
+              SizedBox(
+                height: 25,
+                child: BreadcrumbWidget(
+                  path: currentPath,
+                  loadContent: (path) {
+                    _navigateToFolder(path);
+                  },
+                ),
               ),
               if (folderData.isNotEmpty || fileData.isNotEmpty)
                 Padding(
@@ -246,14 +290,6 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
                         child: Text(
                           "${(folderData.length + fileData.length).toString()} items in total",
                           style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      Spacer(),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: FilterPopupMenuWidget(
-                          filterValue: filterItem,
-                          onChanged: _filterChanged,
                         ),
                       ),
                     ],
@@ -275,8 +311,16 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
             icon: Icon(Icons.search),
           ),
           PopupMenuWidget(
-            popupList: ["Create Folder"],
+            popupList: ["Create Folder", "Sorting"],
             addContent: _addContent,
+            onSortChanged: (sortValue) {
+              setState(() {
+                filterItem = sortValue;
+                _sortFileAndFolder();
+              });
+              SharedPrefsService.instance.setString("sort_filter", sortValue);
+            },
+            currentSortValue: filterItem, // Pass the current filter
           ),
           if (isSelected)
             TextButton(
@@ -362,6 +406,7 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
                             },
                             onLongPress: () {
                               setState(() {
+                                selectedPath.clear();
                                 isSelected = true;
                                 selectedPath.add(folder.path);
                               });
@@ -455,18 +500,6 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
                 _loadContent(currentPath);
               },
               onMove: () async {
-                // setState(() {
-                //   isSelected = false;
-                // });
-                // for (var path in selectedPath) {
-                //   await FileOperations().pasteFileToDestination(
-                //     false,
-                //     currentPath,
-                //     path,
-                //   );
-                // }
-                // selectedPath.clear();
-                // _loadContent(currentPath);
                 await showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,

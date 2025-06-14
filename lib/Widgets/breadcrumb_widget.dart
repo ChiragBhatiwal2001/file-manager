@@ -1,3 +1,4 @@
+import 'package:file_manager/Utils/constant.dart';
 import 'package:flutter/material.dart';
 
 class BreadcrumbWidget extends StatefulWidget {
@@ -11,19 +12,16 @@ class BreadcrumbWidget extends StatefulWidget {
   final void Function(String path) loadContent;
 
   @override
-  State<StatefulWidget> createState() {
-    return _BreadcrumbWidget();
-  }
+  State<StatefulWidget> createState() => _BreadcrumbWidget();
 }
 
 class _BreadcrumbWidget extends State<BreadcrumbWidget> {
-  late List<String> pathList;
   List<String> breadcrumbList = [];
+  List<String> breadcrumbNames = [];
 
   @override
   void initState() {
     super.initState();
-    pathList = widget.path.split("/");
     _updateBreadcrumbs();
   }
 
@@ -36,21 +34,35 @@ class _BreadcrumbWidget extends State<BreadcrumbWidget> {
   }
 
   void _updateBreadcrumbs() {
-    pathList = widget.path.split("/");
     breadcrumbList = [];
-    for (int i = 0; i < pathList.length; i++) {
-      String pathPart = pathList[i];
-      if (pathPart == "") continue;
-      String path = "/" + pathList.sublist(1, i + 1).join("/");
-      breadcrumbList.add(path);
+    breadcrumbNames = [];
+    String path = widget.path;
+    if (path.startsWith(Constant.internalPath)) {
+      breadcrumbList.add(Constant.internalPath);
+      breadcrumbNames.add('All Files');
+      String subPath = path.replaceFirst(Constant.internalPath, '');
+      List<String> parts = subPath.split('/')..removeWhere((e) => e.isEmpty);
+      String current = Constant.internalPath;
+      for (var part in parts) {
+        current += '/$part';
+        breadcrumbList.add(current);
+        breadcrumbNames.add(part);
+      }
+    } else {
+      // fallback for other paths
+      List<String> parts = path.split('/')..removeWhere((e) => e.isEmpty);
+      String current = '';
+      for (var part in parts) {
+        current += '/$part';
+        breadcrumbList.add(current);
+        breadcrumbNames.add(part);
+      }
     }
     setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final hadData = breadcrumbList.isNotEmpty;
-
     return Align(
       alignment: Alignment.centerLeft,
       child: SingleChildScrollView(
@@ -60,26 +72,21 @@ class _BreadcrumbWidget extends State<BreadcrumbWidget> {
           mainAxisSize: MainAxisSize.max,
           mainAxisAlignment: MainAxisAlignment.start,
           children: List.generate(breadcrumbList.length, (index) {
-            String name = breadcrumbList[index].split("/").last;
-            name = name == "0" ? "All Files" : name;
-
-            return hadData
-                ? Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          widget.loadContent(breadcrumbList[index]);
-                        },
-                        child: Text(
-                          name,
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      if (index != breadcrumbList.length - 1)
-                        const Text("➤", style: TextStyle(color: Colors.black)),
-                    ],
-                  )
-                : Text("Internal Storage");
+            return Row(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    widget.loadContent(breadcrumbList[index]);
+                  },
+                  child: Text(
+                    breadcrumbNames[index],
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                if (index != breadcrumbList.length - 1)
+                  const Text("➤", style: TextStyle(color: Colors.black)),
+              ],
+            );
           }),
         ),
       ),
