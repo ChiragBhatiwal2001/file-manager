@@ -88,11 +88,22 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                 );
               },
             )
-          : Center(
-              child: Text(
-                "Favorites is Empty!",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
-              ),
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.favorite_border, size: 100),
+                const SizedBox(height: 20),
+                Text(
+                  'No Favorites Yet',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Mark files or folders as favorite to see them here.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16),
+                ),
+              ],
             ),
     );
   }

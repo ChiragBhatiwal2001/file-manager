@@ -1,10 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 
-Future<void> showAddFolderDialog({
+Future<void> addFolderDialog({
   required BuildContext context,
-  required TextEditingController controller,
-  required VoidCallback onCreate,
+  required String parentPath,
+  required VoidCallback onSuccess,
 }) async {
+  final controller = TextEditingController();
+
   await showDialog(
     context: context,
     builder: (context) {
@@ -26,7 +29,28 @@ Future<void> showAddFolderDialog({
             child: Text("Cancel"),
           ),
           TextButton(
-            onPressed: onCreate,
+            onPressed: () async {
+              final folderName = controller.text.trim();
+              final newPath = "$parentPath/$folderName";
+              if (Directory(newPath).existsSync()) {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text("Folder with this name already exist"),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text("Okay"),
+                      ),
+                    ],
+                  ),
+                );
+              } else {
+                await Directory(newPath).create(recursive: true);
+                if (context.mounted) Navigator.pop(context);
+                onSuccess();
+              }
+            },
             child: Text("Create"),
           ),
         ],

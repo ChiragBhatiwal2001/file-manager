@@ -1,0 +1,43 @@
+import 'dart:io';
+import 'package:file_manager/Utils/constant.dart';
+import 'package:flutter/material.dart';
+
+class DirectoryContent {
+  final List<Directory> folders;
+  final List<File> files;
+
+  DirectoryContent(this.folders, this.files);
+}
+
+class PathLoadingOperations {
+  static final _internalStoragePath = Constant.internalPath;
+
+  static Future<DirectoryContent> loadContent(String path) async {
+    try {
+      final data = await Directory(path).list().toList();
+      final folderData = data.whereType<Directory>().toList();
+      final fileData = data.whereType<File>().toList();
+      return DirectoryContent(folderData, fileData);
+    } catch (e) {
+      return DirectoryContent([], []);
+    }
+  }
+
+  static Future<DirectoryContent> navigateToFolder(String path) {
+    return loadContent(path);
+  }
+
+  static Future<DirectoryContent?> goBackToParentPath(
+    BuildContext context,
+    String currentPath,
+  ) async {
+    String rootPath = _internalStoragePath;
+    String parentPath = Directory(currentPath).parent.path;
+
+    if (currentPath == rootPath || !parentPath.startsWith(rootPath)) {
+      Navigator.pop(context);
+      return null;
+    }
+    return loadContent(parentPath);
+  }
+}

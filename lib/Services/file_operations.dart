@@ -3,8 +3,6 @@ import 'package:media_scanner/media_scanner.dart';
 import 'package:file_manager/Services/recycler_bin.dart';
 
 class FileOperations {
-  Set<String> selectedPath = {};
-
   Future<void> pasteFileToDestination(
     bool isCopy,
     String destination,

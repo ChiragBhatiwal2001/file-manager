@@ -1,18 +1,19 @@
 import 'dart:io';
-
-import 'package:file_manager/Helpers/rename_dialog.dart';
 import 'package:file_manager/Screens/search_screen.dart';
-import 'package:file_manager/Services/file_operations.dart';
 import 'package:file_manager/Services/media_scanner.dart';
 import 'package:file_manager/Services/shared_preference.dart';
-import 'package:file_manager/Services/sqflite_favorites.dart';
-import 'package:file_manager/Widgets/bottom_bar_widget.dart';
-import 'package:file_manager/Widgets/filter_popup_menu_widget.dart';
+import 'package:file_manager/Services/sorting_operation.dart';
+import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/bottom_sheet_single_file_operations.dart';
+import 'package:file_manager/Widgets/popup_menu_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 
 class QuickAccessScreen extends StatefulWidget {
-  const QuickAccessScreen({super.key, required this.category,required this.storagePath});
+  const QuickAccessScreen({
+    super.key,
+    required this.category,
+    required this.storagePath,
+  });
 
   final String storagePath;
   final MediaType category;
@@ -28,136 +29,60 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
   Set<String> selectedPaths = {};
   bool isFavorite = false;
   String filterItem = '';
-  bool _haveFilter = false;
+  String currentSortValue = "name-asc";
 
   @override
   void initState() {
     super.initState();
-    _loadFilterPreference();
+    _initSortValue();
     _getDataForDisplay();
   }
 
-  /// Loads media files of the selected category (image, video, etc.)
-  Future<void> _getDataForDisplay() async {
+  void _initSortValue() async {
+    final prefs = SharedPrefsService.instance;
+    await prefs.init();
+    final savedSort = prefs.getString("sort-preference");
+    setState(() {
+      currentSortValue = savedSort ?? "name-asc";
+    });
+    _getDataForDisplay();
+  }
+
+  void onSortChanged(String sortValue) async {
+    setState(() {
+      currentSortValue = sortValue;
+    });
+    await SharedPrefsService.instance.setString("sort-preference", sortValue);
+    _getDataForDisplay();
+  }
+
+  Future<void> _getDataForDisplay([String? path]) async {
     setState(() => _isLoading = true);
 
     try {
-      // Get categorized media files
       final categorized = await MediaScanner.scanAllMedia();
-      // Update UI
+      List<MediaFile> files = categorized[widget.category] ?? [];
+
+      // Sort files using SortingOperation
+      final sorting = SortingOperation(
+        filterItem: currentSortValue,
+        folderData: [],
+        fileData: files.map((e) => File(e.path)).toList(),
+      );
+      sorting.sortFileAndFolder();
+
+      // Map back to MediaFile after sorting
+      final sortedFiles = sorting.fileData
+          .map((e) => files.firstWhere((f) => f.path == e.path))
+          .toList();
+
       setState(() {
-        data = categorized[widget.category] ?? [];
-        _haveFilter ? _sortFileAndFolder() : null;
+        data = sortedFiles;
         _isLoading = false;
       });
     } catch (e) {
       setState(() => _isLoading = false);
     }
-  }
-
-  Future<void> _showRenameDialog() async {
-    final oldPath = selectedPaths.first;
-    print("yes ia m getting old path $oldPath");
-    await renameDialogBox(
-      context: context,
-      oldPath: oldPath,
-      onSuccess: () async {
-        setState(() {
-          selectedPaths.clear();
-          _isSelected = false;
-          _getDataForDisplay();
-        });
-
-      },
-      onIdleCondition: (){
-        setState(() {
-          selectedPaths.clear();
-          _isSelected = false;
-        });
-      }
-    );
-  }
-
-  Future<void> _handleDelete() async {
-    setState(() {
-      _isSelected = false;
-    });
-    for (var path in selectedPaths) {
-      await FileOperations().deleteOperation(path);
-    }
-    selectedPaths.clear();
-    await MediaScanner.scanAllMedia();
-    await _getDataForDisplay();
-    setState(() {});
-  }
-
-  Future<void> _handleFavorite() async {
-    final path = selectedPaths.first;
-    final db = FavoritesDB();
-    final currentlyFavorite = await db.isFavorite(path);
-    final isFolder = FileSystemEntity.isDirectorySync(path);
-
-    if (currentlyFavorite) {
-      await db.removeFavorite(path);
-      isFavorite = false;
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Removed From Favorites")));
-    } else {
-      await db.addFavorite(path, isFolder);
-      isFavorite = true;
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Added To Favorites")));
-    }
-    setState(() {
-      _isSelected = false;
-    });
-  }
-
-  Future<void> _loadFilterPreference() async {
-    await SharedPrefsService.instance.init();
-    final savedFilter = SharedPrefsService.instance.getString("sort_filter");
-    if (savedFilter != null) {
-      setState(() {
-        filterItem = savedFilter;
-        _haveFilter = true;
-      });
-    }
-    // currentPath = widget.path;
-    // _loadContent(currentPath);
-  }
-
-  void _sortFileAndFolder() {
-    switch (filterItem) {
-      case "name-asc":
-        data.sort(
-          (a, b) => a.path.toLowerCase().compareTo(b.path.toLowerCase()),
-        );
-        break;
-      case "name-desc":
-        data.sort(
-          (a, b) => b.path.toLowerCase().compareTo(a.path.toLowerCase()),
-        );
-        break;
-      case "size":
-        data.sort((a, b) {
-          final aSize = File(a.path).lengthSync();
-          final bSize = File(b.path).lengthSync();
-          return bSize.compareTo(aSize); // Largest file first
-        });
-        break;
-    }
-  }
-
-  void _filterChanged(String value) async {
-    setState(() {
-      filterItem = value;
-      _sortFileAndFolder();
-    });
-    await SharedPrefsService.instance.setString("sort_filter", value);
   }
 
   @override
@@ -170,9 +95,22 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
-          IconButton(onPressed: () async {
-            showModalBottomSheet(context: context,useSafeArea: true,isScrollControlled: true, builder: (context) => SearchScreen(widget.storagePath),);
-          }, icon: Icon(Icons.search)),
+          IconButton(
+            onPressed: () async {
+              showModalBottomSheet(
+                context: context,
+                useSafeArea: true,
+                isScrollControlled: true,
+                builder: (context) => SearchScreen(widget.storagePath),
+              );
+            },
+            icon: Icon(Icons.search),
+          ),
+          PopupMenuWidget(
+            popupList: ["Sorting"],
+            currentSortValue: currentSortValue,
+            onSortChanged: onSortChanged,
+          ),
           if (_isSelected)
             TextButton(
               onPressed: () {
@@ -193,7 +131,8 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
         ),
         bottom: _isLoading
             ? null
-            : data.isNotEmpty ? PreferredSize(
+            : data.isNotEmpty
+            ? PreferredSize(
                 preferredSize: Size.fromHeight(34.0),
                 child: Expanded(
                   child: Row(
@@ -206,18 +145,11 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
-                      Spacer(),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: FilterPopupMenuWidget(
-                          filterValue: filterItem,
-                          onChanged: _filterChanged,
-                        ),
-                      ),
                     ],
                   ),
                 ),
-              ) : null,
+              )
+            : null,
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
@@ -233,32 +165,29 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
               itemBuilder: (context, index) {
                 final file = data[index];
                 final fileName = file.path.split("/").last;
-                final isChecked = selectedPaths.contains(file.path);
                 return ListTile(
                   leading: Icon(_getIconForMedia(file.type)),
                   title: Text(fileName),
-                  trailing: _isSelected
-                      ? Checkbox(
-                          value: isChecked,
-                          onChanged: (value) {
-                            setState(() {
-                              value == true
-                                  ? selectedPaths.add(file.path)
-                                  : selectedPaths.remove(file.path);
-                            });
-                          },
-                        )
-                      : null,
+                  trailing: IconButton(
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        builder: (context) => BottomSheetForSingleFileOperation(
+                          path: file.path,
+                          loadAgain: _getDataForDisplay,
+                          isChangeDirectory: false,
+                        ),
+                      );
+                    },
+                    icon: Icon(Icons.more_vert),
+                  ),
                   subtitle: Text(
                     file.path,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   onTap: () async {
-                    final result = await OpenFilex.open(file.path);
-                    print(
-                      "OpenFliex result : ${result.type}, message: ${result.message}",
-                    );
+                    await OpenFilex.open(file.path);
                   },
                   onLongPress: () {
                     setState(() {
@@ -272,29 +201,6 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
                 return Divider();
               },
             ),
-      bottomNavigationBar: _isSelected
-          ? BottomBarWidget(
-              isRenameEnabled: selectedPaths.length <= 1,
-              onRename: _showRenameDialog,
-              onDelete: () {
-                ScaffoldMessenger.of(context).clearSnackBars();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("Do You Really Want To Delete?"),
-                    duration: Duration(seconds: 5),
-                    action: SnackBarAction(
-                      label: "Yes",
-                      onPressed: _handleDelete, // No async here
-                    ),
-                  ),
-                );
-              },
-              isFavorite: selectedPaths.length == 1 ? isFavorite : null,
-              onFavoriteClicked: selectedPaths.length == 1
-                  ? _handleFavorite
-                  : null,
-            )
-          : null,
     );
   }
 

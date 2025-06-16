@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:open_filex/open_filex.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen(this.internalStorage, {super.key});
@@ -144,6 +145,10 @@ class _SearchScreenState extends State<SearchScreen>
             _searchController.text,
           ),
           subtitle: Text(file.path),
+          onTap: (){
+            FocusScope.of(context).unfocus();
+            OpenFilex.open(file.path);
+          },
         );
       },
     );
@@ -192,15 +197,15 @@ class _SearchScreenState extends State<SearchScreen>
                 ),
               ],
             ),
-            if (!hasSearched || _searchController.text.isEmpty)
-              Expanded(
-                child: Center(
-                  child: Text(
-                    'Start searching...',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
+            // if (!hasSearched || _searchController.text.isEmpty)
+            //   Expanded(
+            //     child: Center(
+            //       child: Text(
+            //         'Start searching...',
+            //         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            //       ),
+            //     ),
+            //   ),
 
             if (hasSearched)
               TabBar(

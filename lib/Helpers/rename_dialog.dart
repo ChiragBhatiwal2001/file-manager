@@ -5,7 +5,6 @@ Future<void> renameDialogBox({
   required BuildContext context,
   required String oldPath,
   required VoidCallback onSuccess,
-  required VoidCallback onIdleCondition,
 }) async {
   final isDir = FileSystemEntity.isDirectorySync(oldPath);
   final oldName = oldPath.split("/").last;
@@ -29,7 +28,6 @@ Future<void> renameDialogBox({
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              onIdleCondition();
             },
             child: Text("Cancel"),
           ),
@@ -37,8 +35,7 @@ Future<void> renameDialogBox({
             onPressed: () async {
               final newName = renameTextController.text.trim();
               if (newName.isEmpty || newName == oldName) {
-                if(context.mounted) Navigator.pop(context);
-                onIdleCondition();
+                if (context.mounted) Navigator.pop(context);
                 return;
               }
 

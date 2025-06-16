@@ -1,18 +1,11 @@
 import 'dart:io';
-import 'package:file_manager/Screens/search_screen.dart';
+
+import 'package:file_manager/Services/path_loading_operations.dart';
 import 'package:file_manager/Services/shared_preference.dart';
-import 'package:file_manager/Services/sqflite_favorites.dart';
-import 'package:file_manager/Widgets/bottom_sheet_paste_operation.dart';
-import 'package:file_manager/Widgets/filter_popup_menu_widget.dart';
-import 'package:open_filex/open_filex.dart';
-import 'package:file_manager/Helpers/add_folder_dialog.dart';
-import 'package:file_manager/Helpers/rename_dialog.dart';
-import 'package:file_manager/Services/file_operations.dart';
-import 'package:file_manager/Widgets/bottom_bar_widget.dart';
-import 'package:file_manager/Widgets/breadcrumb_widget.dart';
-import 'package:file_manager/Widgets/popup_menu_widget.dart';
+import 'package:file_manager/Services/sorting_operation.dart';
+import 'package:file_manager/Widgets/File_Explorer/file_explorer_appbar.dart';
+import 'package:file_manager/Widgets/File_Explorer/file_explorer_body.dart';
 import 'package:flutter/material.dart';
-import 'package:file_manager/Widgets/list_widget.dart';
 
 class FileExplorerScreen extends StatefulWidget {
   const FileExplorerScreen({super.key, required this.path});
@@ -20,528 +13,96 @@ class FileExplorerScreen extends StatefulWidget {
   final String path;
 
   @override
-  State<FileExplorerScreen> createState() {
-    return _FileExplorerScreenState();
-  }
+  State<FileExplorerScreen> createState() => _FileExplorerScreenState();
 }
 
 class _FileExplorerScreenState extends State<FileExplorerScreen> {
-  late String currentPath;
   List<FileSystemEntity> folderData = [];
   List<FileSystemEntity> fileData = [];
-  final _newFolderTextController = TextEditingController();
-  bool isSelected = false;
-  bool _isLoading = false;
-  String filterItem = "name-asc";
-  bool _haveFilter = false;
-  Set<String> selectedPath = {};
-  bool isFavorite = false;
+  late String currentPath;
+  bool isLoading = false;
+  String currentSortValue = "name-asc";
+
+  void loadAllContentOfPath(path) async {
+    setState(() {
+      isLoading = true;
+    });
+    final data = await PathLoadingOperations.loadContent(path);
+
+    final sorting = SortingOperation(
+      filterItem: currentSortValue,
+      folderData: data.folders,
+      fileData: data.files,
+    );
+    sorting.sortFileAndFolder();
+
+    setState(() {
+      currentPath = path;
+      folderData = sorting.folderData;
+      fileData = sorting.fileData;
+      isLoading = false;
+    });
+  }
+
+  void goBack(String path) async {
+    final data = await PathLoadingOperations.goBackToParentPath(context, path);
+
+    if (data == null) {
+      return;
+    }
+
+    String parentPath = Directory(path).parent.path;
+
+    setState(() {
+      currentPath = parentPath;
+      folderData = data.folders;
+      fileData = data.files;
+    });
+  }
+
+  void _initSortValue() async {
+    final prefs = SharedPrefsService.instance;
+    await prefs.init();
+    final savedSort = prefs.getString("sort-preference");
+    setState(() {
+      currentSortValue = savedSort ?? "name-asc";
+      currentPath = widget.path;
+    });
+    loadAllContentOfPath(currentPath);
+  }
+
+  void onSortChanged(String sortValue) async {
+    setState(() {
+      currentSortValue = sortValue;
+    });
+    await SharedPrefsService.instance.setString("sort-preference", sortValue);
+    loadAllContentOfPath(currentPath);
+  }
 
   @override
   void initState() {
     super.initState();
-    currentPath = widget.path;
-    _loadFilterPreference();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-    _newFolderTextController.dispose();
-  }
-
-  Future<void> _loadFilterPreference() async {
-    await SharedPrefsService.instance.init();
-    final savedFilter = SharedPrefsService.instance.getString("sort_filter");
-    if (savedFilter != null) {
-      setState(() {
-        filterItem = savedFilter;
-        _haveFilter = true;
-      });
-    }
-    currentPath = widget.path;
-    _loadContent(currentPath);
-  }
-
-  void _loadContent(String path) async {
-    setState(() {
-      _isLoading = true;
-    });
-    try {
-      final data = await Directory(path).list().toList();
-      setState(() {
-        currentPath = path;
-        folderData = data.whereType<Directory>().toList();
-        fileData = data.whereType<File>().toList();
-        _haveFilter ? _sortFileAndFolder() : null;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), duration: Duration(seconds: 5)),
-        );
-      }
-    }
-  }
-
-  void _navigateToFolder(String path) {
-    _loadContent(path);
-  }
-
-  void _goBackToParentPath() {
-    String rootPath = widget.path;
-    String parentPath = Directory(currentPath).parent.path;
-
-    if (currentPath == rootPath) {
-      Navigator.pop(context);
-      return;
-    }
-
-    if (!parentPath.startsWith(rootPath)) {
-      Navigator.pop(context);
-      return;
-    }
-    _loadContent(parentPath);
-  }
-
-  void _addContent() {
-    showAddFolderDialog(
-      context: context,
-      controller: _newFolderTextController,
-      onCreate: () async {
-        final folderName = _newFolderTextController.text.trim();
-        final path = "$currentPath/$folderName";
-        final dir = Directory(path);
-
-        if (dir.existsSync()) {
-          _newFolderTextController.clear();
-
-          // First close the 'add folder' dialog
-          if (context.mounted) Navigator.pop(context);
-
-          // Then show the alert
-          if (context.mounted) {
-            showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                content: const Text("A folder with this name already exists."),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context), // closes alert
-                    child: const Text("Close"),
-                  ),
-                ],
-              ),
-            );
-          }
-          return;
-        }
-
-        // Create the directory
-        await dir.create(recursive: true);
-        _newFolderTextController.clear();
-
-        // Refresh folder list
-        _loadContent(currentPath);
-
-        // Close the 'add folder' dialog
-        if (context.mounted) Navigator.pop(context);
-      },
-    );
-  }
-
-  Future<void> _showRenameDialog() async {
-    final oldPath = selectedPath.first;
-    await renameDialogBox(
-      context: context,
-      oldPath: oldPath,
-      onSuccess: () {
-        setState(() {
-          selectedPath.clear();
-          isSelected = false;
-          _loadContent(currentPath);
-        });
-      },
-      onIdleCondition: () {
-        setState(() {
-          selectedPath.clear();
-          isSelected = false;
-        });
-      },
-    );
-  }
-
-  void _sortFileAndFolder() {
-    final parts = filterItem.split('-');
-    final sortBy = parts[0];
-    final sortOrder = parts.length > 1 ? parts[1] : 'asc';
-
-    int compare(String a, String b) =>
-        sortOrder == 'asc' ? a.compareTo(b) : b.compareTo(a);
-
-    switch (sortBy) {
-      case "name":
-        folderData.sort(
-              (a, b) => compare(a.path.toLowerCase(), b.path.toLowerCase()),
-        );
-        fileData.sort(
-              (a, b) => compare(a.path.toLowerCase(), b.path.toLowerCase()),
-        );
-        break;
-      case "size":
-        fileData.sort((a, b) {
-          final aSize = File(a.path).lengthSync();
-          final bSize = File(b.path).lengthSync();
-          return sortOrder == 'asc'
-              ? aSize.compareTo(bSize)
-              : bSize.compareTo(aSize);
-        });
-        break;
-      case "modified":
-        folderData.sort((a, b) {
-          final aTime = File(a.path).statSync().modified;
-          final bTime = File(b.path).statSync().modified;
-          return sortOrder == 'asc'
-              ? aTime.compareTo(bTime)
-              : bTime.compareTo(aTime);
-        });
-        fileData.sort((a, b) {
-          final aTime = File(a.path).statSync().modified;
-          final bTime = File(b.path).statSync().modified;
-          return sortOrder == 'asc'
-              ? aTime.compareTo(bTime)
-              : bTime.compareTo(aTime);
-        });
-        break;
-    }
-  }
-
-  Future<void> _handleFavorite() async {
-    final path = selectedPath.first;
-    final db = FavoritesDB();
-    final currentlyFavorite = await db.isFavorite(path);
-    final isFolder = FileSystemEntity.isDirectorySync(path);
-
-    if (currentlyFavorite) {
-      await db.removeFavorite(path);
-      isFavorite = false;
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Removed From Favorites")));
-    } else {
-      await db.addFavorite(path, isFolder);
-      isFavorite = true;
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Added To Favorites")));
-    }
-    setState(() {
-      isSelected = false;
-    });
+    _initSortValue();
   }
 
   @override
   Widget build(BuildContext context) {
-    String currentFolderName = currentPath == widget.path
-        ? "All Files"
-        : currentPath.split("/").last;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          currentFolderName,
-          style: TextStyle(fontWeight: FontWeight.bold),
+      //Appbar widget from widgets folder (file - file_explorer_appbar.dart)
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(104.0),
+        child: FileExplorerAppBar(
+          path: currentPath,
+          handleBreadCrumbTap: loadAllContentOfPath,
+          goBack: goBack,
+          loadNewContent: loadAllContentOfPath,
+          currentSortValue: currentSortValue,
+          onSortChanged: onSortChanged,
         ),
-        titleSpacing: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () {
-            _goBackToParentPath();
-          },
-        ),
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(38.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: 25,
-                child: BreadcrumbWidget(
-                  path: currentPath,
-                  loadContent: (path) {
-                    _navigateToFolder(path);
-                  },
-                ),
-              ),
-              if (folderData.isNotEmpty || fileData.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Row(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8.0),
-                        child: Text(
-                          "${(folderData.length + fileData.length).toString()} items in total",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-        actions: [
-          IconButton(
-            onPressed: () async {
-              showModalBottomSheet(
-                context: context,
-                useSafeArea: true,
-                isScrollControlled: true,
-                builder: (context) => SearchScreen(widget.path),
-              );
-            },
-            icon: Icon(Icons.search),
-          ),
-          PopupMenuWidget(
-            popupList: ["Create Folder", "Sorting"],
-            addContent: _addContent,
-            onSortChanged: (sortValue) {
-              setState(() {
-                filterItem = sortValue;
-                _sortFileAndFolder();
-              });
-              SharedPrefsService.instance.setString("sort_filter", sortValue);
-            },
-            currentSortValue: filterItem, // Pass the current filter
-          ),
-          if (isSelected)
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  isSelected = false;
-                  selectedPath.clear();
-                });
-              },
-              child: Text(
-                "Cancel",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ),
-        ],
       ),
-      body: _isLoading
+      body: isLoading
           ? Center(child: CircularProgressIndicator())
-          : Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (folderData.isEmpty && fileData.isEmpty) ...[
-                  Expanded(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.folder_off, size: 175.0),
-                          const SizedBox(height: 10),
-                          const Text(
-                            "Nothing is in Directory",
-                            style: TextStyle(
-                              wordSpacing: 1,
-                              letterSpacing: 1,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 17,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ] else
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount:
-                          (folderData.isNotEmpty ? folderData.length + 1 : 0) +
-                          (fileData.isNotEmpty ? fileData.length + 1 : 0),
-                      itemBuilder: (context, index) {
-                        int folderHeaderIndex = 0;
-                        int fileHeaderIndex = folderData.isNotEmpty
-                            ? folderData.length + 1
-                            : 0;
-
-                        if (index == folderHeaderIndex &&
-                            folderData.isNotEmpty) {
-                          return Padding(
-                            padding: const EdgeInsets.only(
-                              left: 12.0,
-                              top: 8,
-                              bottom: 0,
-                            ),
-                            child: Text(
-                              "Folders",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Colors.indigoAccent,
-                              ),
-                            ),
-                          );
-                        } else if (index > folderHeaderIndex &&
-                            index < fileHeaderIndex) {
-                          final folder =
-                              folderData[index -
-                                  1]; // -1 because of folder heading
-                          final isChecked = selectedPath.contains(folder.path);
-
-                          return ListWidget(
-                            storageFile: folder,
-                            onTap: () {
-                              _navigateToFolder(folder.path);
-                            },
-                            onLongPress: () {
-                              setState(() {
-                                selectedPath.clear();
-                                isSelected = true;
-                                selectedPath.add(folder.path);
-                              });
-                            },
-                            onCheckboxChanged: (value) {
-                              setState(() {
-                                value == true
-                                    ? selectedPath.add(folder.path)
-                                    : selectedPath.remove(folder.path);
-                              });
-                            },
-                            isChecked: isChecked,
-                            isSelected: isSelected,
-                          );
-                        } else if (index == fileHeaderIndex &&
-                            fileData.isNotEmpty) {
-                          return Padding(
-                            padding: const EdgeInsets.only(
-                              top: 8.0,
-                              left: 12.0,
-                              bottom: 0.0,
-                            ),
-                            child: Text(
-                              "Files",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Colors.indigoAccent,
-                              ),
-                            ),
-                          );
-                        } else {
-                          final file =
-                              fileData[index -
-                                  fileHeaderIndex -
-                                  1]; // -1 for file heading
-                          final isChecked = selectedPath.contains(file.path);
-
-                          return ListWidget(
-                            storageFile: file,
-                            onTap: () {
-                              if (isSelected) {
-                                setState(() {
-                                  isChecked
-                                      ? selectedPath.remove(file.path)
-                                      : selectedPath.add(file.path);
-                                });
-                              } else {
-                                OpenFilex.open(file.path);
-                              }
-                            },
-                            onLongPress: () {
-                              setState(() {
-                                isSelected = true;
-                                selectedPath.add(file.path);
-                              });
-                            },
-                            onCheckboxChanged: (value) {
-                              setState(() {
-                                value == true
-                                    ? selectedPath.add(file.path)
-                                    : selectedPath.remove(file.path);
-                              });
-                            },
-                            isChecked: isChecked,
-                            isSelected: isSelected,
-                          );
-                        }
-                      },
-                    ),
-                  ),
-              ],
-            ),
-      bottomNavigationBar: isSelected
-          ? BottomBarWidget(
-              isRenameEnabled: selectedPath.length <= 1,
-              onRename: _showRenameDialog,
-              onCopy: () async {
-                await showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  useSafeArea: true,
-                  builder: (context) => BottomSheetForPasteOperation(
-                    selectedPaths: selectedPath,
-                    isCopy: true,
-                  ),
-                );
-                setState(() {
-                  isSelected = false;
-                });
-                _loadContent(currentPath);
-              },
-              onMove: () async {
-                await showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  useSafeArea: true,
-                  builder: (context) => BottomSheetForPasteOperation(
-                    selectedPaths: selectedPath,
-                    isCopy: false,
-                  ),
-                );
-                setState(() {
-                  isSelected = false;
-                });
-                _loadContent(currentPath);
-              },
-              onDelete: () {
-                ScaffoldMessenger.of(context).clearSnackBars();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("Do You Really Want To Delete?"),
-                    duration: Duration(seconds: 5),
-                    action: SnackBarAction(
-                      label: "Yes",
-                      onPressed: () async {
-                        setState(() {
-                          isSelected = false;
-                        });
-                        for (var path in selectedPath) {
-                          await FileOperations().deleteOperation(path);
-                        }
-                        selectedPath.clear();
-                        _loadContent(currentPath);
-                      },
-                    ),
-                  ),
-                );
-              },
-              isFavorite: selectedPath.length == 1 ? isFavorite : null,
-              onFavoriteClicked: selectedPath.length == 1
-                  ? _handleFavorite
-                  : null,
-            )
-          : null,
+          : FileExplorerBody(folderData, fileData, loadAllContentOfPath),
     );
   }
 }

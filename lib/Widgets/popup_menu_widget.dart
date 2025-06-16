@@ -1,15 +1,16 @@
+import 'package:file_manager/Helpers/add_folder_dialog.dart';
 import 'package:flutter/material.dart';
 
 class PopupMenuWidget extends StatelessWidget {
   final List<String> popupList;
-  final void Function() addContent;
+  final VoidCallback? showAddFolderDialog;
   final void Function(String sortValue)? onSortChanged;
   final String? currentSortValue;
 
-  const PopupMenuWidget({
+  PopupMenuWidget({
     super.key,
+    this.showAddFolderDialog,
     required this.popupList,
-    required this.addContent,
     this.onSortChanged,
     this.currentSortValue,
   });
@@ -32,64 +33,63 @@ class PopupMenuWidget extends StatelessWidget {
               String _sortBy = initialSortBy;
               String _sortOrder = initialSortOrder;
               return StatefulBuilder(
-                builder: (context, setState) =>
-                    AlertDialog(
-                      title: Text("Sort By"),
-                      content: Column(
-                        mainAxisSize: MainAxisSize.min,
+                builder: (context, setState) => AlertDialog(
+                  title: Text("Sort By"),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      RadioListTile(
+                        title: Text("Name"),
+                        value: "name",
+                        groupValue: _sortBy,
+                        onChanged: (val) {
+                          setState(() => _sortBy = val as String);
+                        },
+                      ),
+                      RadioListTile(
+                        title: Text("Size"),
+                        value: "size",
+                        groupValue: _sortBy,
+                        onChanged: (val) {
+                          setState(() => _sortBy = val as String);
+                        },
+                      ),
+                      RadioListTile(
+                        title: Text("Last Modified"),
+                        value: "modified",
+                        groupValue: _sortBy,
+                        onChanged: (val) {
+                          setState(() => _sortBy = val as String);
+                        },
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          RadioListTile(
-                            title: Text("Name"),
-                            value: "name",
-                            groupValue: _sortBy,
-                            onChanged: (val) {
-                              setState(() => _sortBy = val as String);
+                          TextButton(
+                            onPressed: () {
+                              _sortOrder = "desc";
+                              Navigator.pop(context, {
+                                "sortBy": _sortBy,
+                                "sortOrder": _sortOrder,
+                              });
                             },
+                            child: Text("Descending"),
                           ),
-                          RadioListTile(
-                            title: Text("Size"),
-                            value: "size",
-                            groupValue: _sortBy,
-                            onChanged: (val) {
-                              setState(() => _sortBy = val as String);
+                          TextButton(
+                            onPressed: () {
+                              _sortOrder = "asc";
+                              Navigator.pop(context, {
+                                "sortBy": _sortBy,
+                                "sortOrder": _sortOrder,
+                              });
                             },
-                          ),
-                          RadioListTile(
-                            title: Text("Last Modified"),
-                            value: "modified",
-                            groupValue: _sortBy,
-                            onChanged: (val) {
-                              setState(() => _sortBy = val as String);
-                            },
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              TextButton(
-                                onPressed: () {
-                                  _sortOrder = "desc";
-                                  Navigator.pop(context, {
-                                    "sortBy": _sortBy,
-                                    "sortOrder": _sortOrder,
-                                  });
-                                },
-                                child: Text("Descending"),
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  _sortOrder = "asc";
-                                  Navigator.pop(context, {
-                                    "sortBy": _sortBy,
-                                    "sortOrder": _sortOrder,
-                                  });
-                                },
-                                child: Text("Ascending"),
-                              ),
-                            ],
+                            child: Text("Ascending"),
                           ),
                         ],
                       ),
-                    ),
+                    ],
+                  ),
+                ),
               );
             },
           ).then((result) {
@@ -97,15 +97,16 @@ class PopupMenuWidget extends StatelessWidget {
               onSortChanged!('${result["sortBy"]}-${result["sortOrder"]}');
             }
           });
-        } else if (value == "Create Folder") { // <-- Handle create folder
-          addContent();
+        } else if (value == "Create Folder") {
+          if (showAddFolderDialog != null) {
+            showAddFolderDialog!();
+          }
         }
       },
       icon: Icon(Icons.more_vert_sharp),
-      itemBuilder: (context) =>
-          popupList.map((item) {
-            return PopupMenuItem(value: item, child: Text(item));
-          }).toList(),
+      itemBuilder: (context) => popupList.map((item) {
+        return PopupMenuItem(value: item, child: Text(item));
+      }).toList(),
     );
   }
 }

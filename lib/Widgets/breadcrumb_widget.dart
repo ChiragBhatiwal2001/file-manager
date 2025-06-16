@@ -63,6 +63,8 @@ class _BreadcrumbWidget extends State<BreadcrumbWidget> {
 
   @override
   Widget build(BuildContext context) {
+    var isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Align(
       alignment: Alignment.centerLeft,
       child: SingleChildScrollView(
@@ -84,7 +86,13 @@ class _BreadcrumbWidget extends State<BreadcrumbWidget> {
                   ),
                 ),
                 if (index != breadcrumbList.length - 1)
-                  const Text("➤", style: TextStyle(color: Colors.black)),
+                  Text(
+                    "➤",
+                    style: TextStyle(
+                      letterSpacing: 12,
+                      color: isDarkMode ? Colors.white : Colors.black,
+                    ),
+                  ),
               ],
             );
           }),
