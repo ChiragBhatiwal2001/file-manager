@@ -6,6 +6,7 @@ import 'package:file_manager/Utils/constant.dart';
 import 'package:file_manager/Widgets/breadcrumb_widget.dart';
 import 'package:file_manager/Widgets/list_widget.dart';
 import 'package:file_manager/Widgets/screen_empty_widget.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 
@@ -45,11 +46,14 @@ class _BottomSheetForPasteOperationState
     loadAllContentOfPath(internalStorage!);
   }
 
-  void loadAllContentOfPath(path) async {
+  Future<void> loadAllContentOfPath(path) async {
     setState(() {
       isLoading = true;
     });
-    final data = await PathLoadingOperations.loadContent(path);
+    final data = await compute<String, DirectoryContent>(
+      PathLoadingOperations.loadContentIsolate,
+      path,
+    );
 
     setState(() {
       currentPath = path;
@@ -82,6 +86,9 @@ class _BottomSheetForPasteOperationState
       expand: false,
       initialChildSize: 1,
       builder: (context, scrollController) {
+        if (isLoading) {
+          return Center(child: CircularProgressIndicator());
+        }
         return Column(
           children: [
             Row(
@@ -206,7 +213,6 @@ class _BottomSheetForPasteOperationState
                   onPressed: () async {
                     if (widget.isSingleOperation &&
                         widget.selectedSinglePath != null) {
-                      // Single file/folder operation
                       await FileOperations().pasteFileToDestination(
                         widget.isCopy,
                         currentPath,
@@ -214,7 +220,6 @@ class _BottomSheetForPasteOperationState
                       );
                     } else if (widget.selectedPaths != null &&
                         widget.selectedPaths!.isNotEmpty) {
-                      // Multiple files/folders operation
                       for (var path in widget.selectedPaths!) {
                         await FileOperations().pasteFileToDestination(
                           widget.isCopy,
@@ -224,23 +229,25 @@ class _BottomSheetForPasteOperationState
                       }
                       widget.selectedPaths!.clear();
                     }
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      Future.delayed(Duration(milliseconds: 200));
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: Text("Operation Finished Successfully"),
-                          actions: [
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(context); // Close dialog
-                              },
-                              child: Text("OK"),
-                            ),
-                          ],
-                        ),
-                      );
+                    if (mounted) {
+                      Navigator.pop(context); // Dismiss the bottom sheet first
+                      await Future.delayed(Duration(milliseconds: 200));
+                      if (context.mounted) {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text("Operation Finished Successfully"),
+                            actions: [
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.pop(context); // Close dialog
+                                },
+                                child: Text("OK"),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
                     }
                   },
                   style: ElevatedButton.styleFrom(

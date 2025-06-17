@@ -1,47 +1,26 @@
 import 'dart:io';
-import 'dart:ui';
+import 'package:file_manager/Providers/file_explorer_state_model.dart';
+import 'package:intl/intl.dart';
+import 'package:file_manager/Providers/file_explorer_notifier.dart';
+import 'package:file_manager/Providers/selction_notifier.dart';
 import 'package:file_manager/Services/media_scanner.dart';
 import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/bottom_sheet_single_file_operations.dart';
 import 'package:file_manager/Widgets/screen_empty_widget.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter/material.dart';
 
-class FileExplorerBody extends StatefulWidget {
-  FileExplorerBody(
-    this.folderData,
-    this.fileData,
-    this.loadDirectoryPath, {
-    super.key,
-  });
+class FileExplorerBody extends ConsumerStatefulWidget {
+  final StateNotifierProvider<FileExplorerNotifier, FileExplorerState> providerInstance;
 
-  List<FileSystemEntity> folderData;
-  List<FileSystemEntity> fileData;
-  void Function(String path) loadDirectoryPath;
+  const FileExplorerBody({super.key, required this.providerInstance});
 
   @override
-  State<FileExplorerBody> createState() => _FileExplorerBodyState();
+  ConsumerState<FileExplorerBody> createState() => _FileExplorerBodyState();
 }
 
-class _FileExplorerBodyState extends State<FileExplorerBody> {
-
-  IconData _getIconForMedia(MediaType type) {
-    switch (type) {
-      case MediaType.image:
-        return Icons.image;
-      case MediaType.video:
-        return Icons.video_library;
-      case MediaType.audio:
-        return Icons.music_note;
-      case MediaType.document:
-        return Icons.insert_drive_file;
-      case MediaType.apk:
-        return Icons.android;
-      default:
-        return Icons.folder;
-    }
-  }
-
+class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
   static const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
   static const videoExts = ['.mp4', '.mkv', '.avi', '.3gp', '.mov'];
   static const audioExts = ['.mp3', '.wav', '.aac', '.m4a', '.ogg'];
@@ -67,24 +46,49 @@ class _FileExplorerBodyState extends State<FileExplorerBody> {
     return MediaType.other;
   }
 
+  IconData _getIconForMedia(MediaType type) {
+    switch (type) {
+      case MediaType.image:
+        return Icons.image;
+      case MediaType.video:
+        return Icons.video_library;
+      case MediaType.audio:
+        return Icons.music_note;
+      case MediaType.document:
+        return Icons.insert_drive_file;
+      case MediaType.apk:
+        return Icons.android;
+      default:
+        return Icons.folder;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return widget.folderData.isEmpty && widget.fileData.isEmpty
-        ? ScreenEmptyWidget()
+    final currentState = ref.watch(widget.providerInstance);
+    final notifier = ref.read(widget.providerInstance.notifier);
+    final lastModifiedMap = currentState.lastModifiedMap;
+    return currentState.folders.isEmpty && currentState.files.isEmpty
+        ? const ScreenEmptyWidget()
         : ListView.builder(
+            key: const PageStorageKey('fileExplorerListView'),
             itemCount:
-                (widget.folderData.isNotEmpty
-                    ? widget.folderData.length + 1
+                (currentState.folders.isNotEmpty
+                    ? currentState.folders.length + 1
                     : 0) +
-                (widget.fileData.isNotEmpty ? widget.fileData.length + 1 : 0),
+                (currentState.files.isNotEmpty
+                    ? currentState.files.length + 1
+                    : 0),
             itemBuilder: (context, index) {
               final folderHeaderIndex = 0;
-              final fileHeaderIndex = widget.folderData.isNotEmpty
-                  ? widget.folderData.length + 1
+              final fileHeaderIndex = currentState.folders.isNotEmpty
+                  ? currentState.folders.length + 1
                   : 0;
-              if (index == folderHeaderIndex && widget.folderData.isNotEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.only(left: 12.0, top: 8, bottom: 0),
+
+              if (index == folderHeaderIndex &&
+                  currentState.folders.isNotEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.only(left: 12.0, top: 8, bottom: 0),
                   child: Text(
                     "Folders",
                     style: TextStyle(
@@ -95,29 +99,73 @@ class _FileExplorerBodyState extends State<FileExplorerBody> {
                   ),
                 );
               } else if (index > folderHeaderIndex && index < fileHeaderIndex) {
-                final folderPath = widget.folderData[index - 1].path;
+                final folderPath = currentState.folders[index - 1].path;
                 final folderName = p.basename(folderPath);
+                final lastModifiedDate = lastModifiedMap?[folderPath];
                 return ListTile(
-                  title: Text(folderName),
-                  leading: Icon(Icons.folder),
-                  trailing: IconButton(
-                    onPressed: () {
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (context) =>
-                            BottomSheetForSingleFileOperation(path: folderPath,loadAgain: widget.loadDirectoryPath),
+                  key: ValueKey(folderPath),
+                  title: Text(
+                    folderName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  leading: const CircleAvatar(child: Icon(Icons.folder)),
+                  subtitle: Text(
+                    lastModifiedDate != null
+                        ? DateFormat('dd MMM yyyy').format(lastModifiedDate)
+                        : 'Last Modified: Unknown',
+                  ),
+                  trailing: Consumer(
+                    builder: (context, ref, _) {
+                      final selectionState = ref.watch(selectionProvider);
+                      final selectionNotifier = ref.read(
+                        selectionProvider.notifier,
                       );
+                      return selectionState.isSelectionMode
+                          ? Checkbox(
+                              value: selectionState.selectedPaths.contains(
+                                folderPath,
+                              ),
+                              onChanged: (_) =>
+                                  selectionNotifier.toggleSelection(folderPath),
+                            )
+                          : IconButton(
+                              onPressed: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  builder: (context) =>
+                                      BottomSheetForSingleFileOperation(
+                                        path: folderPath,
+                                        loadAgain:
+                                            notifier.loadAllContentOfPath,
+                                      ),
+                                );
+                              },
+                              icon: const Icon(Icons.more_vert),
+                            );
                     },
-                    icon: Icon(Icons.more_vert),
                   ),
                   onTap: () {
-                    widget.loadDirectoryPath(folderPath);
+                    final isSelectionMode = ref
+                        .read(selectionProvider)
+                        .isSelectionMode;
+                    final notifierSel = ref.read(selectionProvider.notifier);
+                    if (isSelectionMode) {
+                      notifierSel.toggleSelection(folderPath);
+                    } else {
+                      notifier.loadAllContentOfPath(folderPath);
+                    }
+                  },
+                  onLongPress: () {
+                    ref
+                        .read(selectionProvider.notifier)
+                        .toggleSelection(folderPath);
                   },
                 );
               } else if (index == fileHeaderIndex &&
-                  widget.fileData.isNotEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.only(left: 12.0, top: 8, bottom: 0),
+                  currentState.files.isNotEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.only(left: 12.0, top: 8, bottom: 0),
                   child: Text(
                     "Files",
                     style: TextStyle(
@@ -129,24 +177,70 @@ class _FileExplorerBodyState extends State<FileExplorerBody> {
                 );
               } else {
                 final filePath =
-                    widget.fileData[index - fileHeaderIndex - 1].path;
+                    currentState.files[index - fileHeaderIndex - 1].path;
                 final fileName = p.basename(filePath);
-                final iconData = _getIconForMedia(_getMediaTypeFromExtension(filePath));
+                final iconData = _getIconForMedia(
+                  _getMediaTypeFromExtension(filePath),
+                );
+                final lastModifiedDate = lastModifiedMap?[filePath];
                 return ListTile(
-                  title: Text(fileName),
-                  leading: Icon(iconData),
-                  trailing: IconButton(
-                    onPressed: () {
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (context) =>
-                            BottomSheetForSingleFileOperation(path: filePath,loadAgain: widget.loadDirectoryPath,),
+                  key: ValueKey(filePath),
+                  title: Text(
+                    fileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  leading: CircleAvatar(child: Icon(iconData)),
+                  trailing: Consumer(
+                    builder: (context, ref, _) {
+                      final selectionState = ref.watch(selectionProvider);
+                      final selectionNotifier = ref.read(
+                        selectionProvider.notifier,
                       );
+                      return selectionState.isSelectionMode
+                          ? Checkbox(
+                              value: selectionState.selectedPaths.contains(
+                                filePath,
+                              ),
+                              onChanged: (_) =>
+                                  selectionNotifier.toggleSelection(filePath),
+                            )
+                          : IconButton(
+                              onPressed: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  builder: (context) =>
+                                      BottomSheetForSingleFileOperation(
+                                        path: filePath,
+                                        loadAgain:
+                                            notifier.loadAllContentOfPath,
+                                      ),
+                                );
+                              },
+                              icon: const Icon(Icons.more_vert),
+                            );
                     },
-                    icon: Icon(Icons.more_vert),
+                  ),
+                  subtitle: Text(
+                    lastModifiedDate != null
+                        ? DateFormat('dd MMM yyyy').format(lastModifiedDate)
+                        : 'Last Modified: Unknown',
                   ),
                   onTap: () {
-                    OpenFilex.open(filePath);
+                    final isSelectionMode = ref
+                        .read(selectionProvider)
+                        .isSelectionMode;
+                    final notifierSel = ref.read(selectionProvider.notifier);
+                    if (isSelectionMode) {
+                      notifierSel.toggleSelection(filePath);
+                    } else {
+                      OpenFilex.open(filePath);
+                    }
+                  },
+                  onLongPress: () {
+                    ref
+                        .read(selectionProvider.notifier)
+                        .toggleSelection(filePath);
                   },
                 );
               }

@@ -23,8 +23,8 @@ class PathLoadingOperations {
     }
   }
 
-  static Future<DirectoryContent> navigateToFolder(String path) {
-    return loadContent(path);
+  static Future<DirectoryContent> loadContentIsolate(String path) async {
+    return await loadContent(path);
   }
 
   static Future<DirectoryContent?> goBackToParentPath(

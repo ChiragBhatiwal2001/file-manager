@@ -1,11 +1,14 @@
 import 'package:file_manager/Screens/home_screen.dart';
+import 'package:file_manager/Services/shared_preference.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  runApp(const MyApp());
+  await SharedPrefsService.instance.init();
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -35,28 +38,27 @@ class MyApp extends StatelessWidget {
   }
 
   ThemeData _buildCustomTheme(ColorScheme scheme, Brightness brightness) {
+    final base = ThemeData(brightness: brightness, useMaterial3: true);
     final isDark = brightness == Brightness.dark;
-    return ThemeData(
-      useMaterial3: true,
+
+    return base.copyWith(
       colorScheme: scheme,
-      scaffoldBackgroundColor: isDark
-          ? scheme.background
-          : scheme.surfaceVariant.withOpacity(0.97),
-      fontFamily: 'Poppins',
+      scaffoldBackgroundColor: scheme.background,
       appBarTheme: AppBarTheme(
         backgroundColor: scheme.surface,
         foregroundColor: scheme.onSurface,
         elevation: 1,
         titleTextStyle: TextStyle(
+          fontFamily: 'Poppins',
           fontWeight: FontWeight.w600,
           fontSize: 20,
           color: scheme.onSurface,
         ),
       ),
       cardTheme: CardThemeData().copyWith(
-        elevation: 4,
-        color: scheme.secondaryContainer.withOpacity(isDark ? 0.8 : 1.0),
-      ),
+        elevation: 3,
+        color: scheme.secondaryContainer,
+        ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
@@ -64,14 +66,14 @@ class MyApp extends StatelessWidget {
         elevation: 6,
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: scheme.surface.withOpacity(0.95),
+        backgroundColor: scheme.surface,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         modalElevation: 8,
       ),
       iconTheme: IconThemeData(color: scheme.primary),
-      textTheme: TextTheme(
+      textTheme: base.textTheme.copyWith(
         bodyLarge: TextStyle(fontSize: 16, color: scheme.onSurface),
         bodyMedium: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
         titleLarge: TextStyle(
@@ -84,7 +86,11 @@ class MyApp extends StatelessWidget {
         color: scheme.surface,
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        textStyle: TextStyle(fontFamily: 'Poppins', color: scheme.onSurface),
+        textStyle: TextStyle(
+          fontFamily: 'Poppins',
+          fontSize: 14,
+          color: scheme.onSurface,
+        ),
       ),
     );
   }

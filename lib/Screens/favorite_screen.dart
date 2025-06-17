@@ -71,7 +71,8 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => FileExplorerScreen(path: path),
+                          builder: (context) =>
+                              FileExplorerScreen(initialPath: path),
                         ),
                       );
                     } else {

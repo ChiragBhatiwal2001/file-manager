@@ -25,63 +25,83 @@ class QuickAccessScreen extends StatefulWidget {
 class _QuickAccessScreenState extends State<QuickAccessScreen> {
   List<MediaFile> data = [];
   bool _isLoading = false;
-  bool _isSelected = false;
-  Set<String> selectedPaths = {};
-  bool isFavorite = false;
-  String filterItem = '';
+  bool _isSelectionMode = false;
+  late ValueNotifier<Set<String>> selectedPaths;
   String currentSortValue = "name-asc";
 
   @override
   void initState() {
     super.initState();
+    selectedPaths = ValueNotifier<Set<String>>({});
     _initSortValue();
-    _getDataForDisplay();
+  }
+
+  @override
+  void dispose() {
+    selectedPaths.dispose();
+    super.dispose();
   }
 
   void _initSortValue() async {
     final prefs = SharedPrefsService.instance;
     await prefs.init();
     final savedSort = prefs.getString("sort-preference");
-    setState(() {
-      currentSortValue = savedSort ?? "name-asc";
-    });
+    currentSortValue = savedSort ?? "name-asc";
     _getDataForDisplay();
   }
 
   void onSortChanged(String sortValue) async {
-    setState(() {
-      currentSortValue = sortValue;
-    });
+    currentSortValue = sortValue;
     await SharedPrefsService.instance.setString("sort-preference", sortValue);
     _getDataForDisplay();
   }
 
   Future<void> _getDataForDisplay([String? path]) async {
     setState(() => _isLoading = true);
-
     try {
       final categorized = await MediaScanner.scanAllMedia();
       List<MediaFile> files = categorized[widget.category] ?? [];
-
-      // Sort files using SortingOperation
       final sorting = SortingOperation(
         filterItem: currentSortValue,
         folderData: [],
         fileData: files.map((e) => File(e.path)).toList(),
       );
       sorting.sortFileAndFolder();
-
-      // Map back to MediaFile after sorting
       final sortedFiles = sorting.fileData
           .map((e) => files.firstWhere((f) => f.path == e.path))
           .toList();
-
       setState(() {
         data = sortedFiles;
         _isLoading = false;
+        _isSelectionMode = false;
+        selectedPaths.value = {};
       });
     } catch (e) {
       setState(() => _isLoading = false);
+    }
+  }
+
+  void _onLongPress(String path) {
+    setState(() {
+      _isSelectionMode = true;
+    });
+    selectedPaths.value = {...selectedPaths.value, path};
+  }
+
+  void _onTap(String path) async {
+    if (_isSelectionMode) {
+      final newSet = Set<String>.from(selectedPaths.value);
+      if (newSet.contains(path)) {
+        newSet.remove(path);
+        if (newSet.isEmpty) {
+          setState(() => _isSelectionMode = false);
+        }
+      } else {
+        newSet.add(path);
+      }
+      selectedPaths.value = newSet;
+    } else {
+      await OpenFilex.open(path);
     }
   }
 
@@ -92,11 +112,11 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
         titleSpacing: 0,
         title: Text(
           widget.category.name.toUpperCase(),
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
-            onPressed: () async {
+            onPressed: () {
               showModalBottomSheet(
                 context: context,
                 useSafeArea: true,
@@ -104,107 +124,102 @@ class _QuickAccessScreenState extends State<QuickAccessScreen> {
                 builder: (context) => SearchScreen(widget.storagePath),
               );
             },
-            icon: Icon(Icons.search),
+            icon: const Icon(Icons.search),
           ),
           PopupMenuWidget(
-            popupList: ["Sorting"],
+            popupList: const ["Sorting"],
             currentSortValue: currentSortValue,
             onSortChanged: onSortChanged,
           ),
-          if (_isSelected)
+          if (_isSelectionMode)
             TextButton(
               onPressed: () {
-                setState(() {
-                  selectedPaths.clear();
-                  _isSelected = false;
-                });
+                setState(() => _isSelectionMode = false);
+                selectedPaths.value = {};
               },
-              child: Text(
+              child: const Text(
                 "Cancel",
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
         ],
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
-        bottom: _isLoading
+        bottom: _isLoading || data.isEmpty
             ? null
-            : data.isNotEmpty
-            ? PreferredSize(
-                preferredSize: Size.fromHeight(34.0),
-                child: Expanded(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8.0, bottom: 5.0),
-                        child: Text(
-                          "${data.length.toString()} items in total",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : null,
+            : PreferredSize(
+          preferredSize: const Size.fromHeight(34.0),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 8.0, bottom: 5.0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "${data.length} items in total",
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ),
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : data.isEmpty
           ? Center(
-              child: Text(
-                "No ${widget.category.name} found",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
-              ),
-            )
-          : ListView.separated(
-              itemCount: data.length,
-              itemBuilder: (context, index) {
-                final file = data[index];
-                final fileName = file.path.split("/").last;
-                return ListTile(
-                  leading: Icon(_getIconForMedia(file.type)),
-                  title: Text(fileName),
-                  trailing: IconButton(
-                    onPressed: () {
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (context) => BottomSheetForSingleFileOperation(
-                          path: file.path,
-                          loadAgain: _getDataForDisplay,
-                          isChangeDirectory: false,
-                        ),
-                      );
-                    },
-                    icon: Icon(Icons.more_vert),
-                  ),
-                  subtitle: Text(
-                    file.path,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  onTap: () async {
-                    await OpenFilex.open(file.path);
+        child: Text(
+          "No ${widget.category.name} found",
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+        ),
+      )
+          : ValueListenableBuilder<Set<String>>(
+        valueListenable: selectedPaths,
+        builder: (context, selected, _) {
+          return ListView.separated(
+            itemCount: data.length,
+            itemBuilder: (context, index) {
+              final file = data[index];
+              final fileName = file.path.split("/").last;
+              final isSelected = selected.contains(file.path);
+              return ListTile(
+                key: ValueKey(file.path),
+                leading: Icon(_getIconForMedia(file.type)),
+                title: Text(fileName),
+                trailing: _isSelectionMode
+                    ? Checkbox(
+                  value: isSelected,
+                  onChanged: (_) => _onTap(file.path),
+                )
+                    : IconButton(
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (context) => BottomSheetForSingleFileOperation(
+                        path: file.path,
+                        loadAgain: _getDataForDisplay,
+                        isChangeDirectory: false,
+                      ),
+                    );
                   },
-                  onLongPress: () {
-                    setState(() {
-                      _isSelected = true;
-                      selectedPaths.add(file.path);
-                    });
-                  },
-                );
-              },
-              separatorBuilder: (BuildContext context, int index) {
-                return Divider();
-              },
-            ),
+                  icon: const Icon(Icons.more_vert),
+                ),
+                subtitle: Text(
+                  file.path,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () => _onTap(file.path),
+                onLongPress: () => _onLongPress(file.path),
+                selected: isSelected,
+              );
+            },
+            separatorBuilder: (context, index) => const Divider(),
+          );
+        },
+      ),
     );
   }
 
-  /// Returns an icon based on media type
   IconData _getIconForMedia(MediaType type) {
     switch (type) {
       case MediaType.image:
