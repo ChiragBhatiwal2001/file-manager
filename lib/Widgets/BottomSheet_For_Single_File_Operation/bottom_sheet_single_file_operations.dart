@@ -1,10 +1,13 @@
+import 'dart:io';
+
 import 'package:file_manager/Services/get_meta_data.dart';
 import 'package:flutter/material.dart';
 import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/header_for_single_file_operations.dart';
 import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/body_for_single_file_operation.dart';
+import 'package:share_plus/share_plus.dart';
 
 class BottomSheetForSingleFileOperation extends StatefulWidget {
-  BottomSheetForSingleFileOperation({
+  const BottomSheetForSingleFileOperation({
     super.key,
     required this.path,
     required this.loadAgain,
@@ -13,7 +16,7 @@ class BottomSheetForSingleFileOperation extends StatefulWidget {
 
   final String path;
   final void Function(String path) loadAgain;
-  bool isChangeDirectory;
+  final bool isChangeDirectory;
 
   @override
   State<BottomSheetForSingleFileOperation> createState() =>
@@ -27,10 +30,10 @@ class _BottomSheetForSingleFileOperationState
   @override
   void initState() {
     super.initState();
-    getFileDetails();
+    _getFileDetails();
   }
 
-  void getFileDetails() async {
+  Future<void> _getFileDetails() async {
     final data = await getMetadata(widget.path);
     setState(() {
       fileData = data;
@@ -40,16 +43,16 @@ class _BottomSheetForSingleFileOperationState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
+    final isDirectory = FileSystemEntity.isDirectorySync(widget.path);
     return DraggableScrollableSheet(
       expand: false,
-      initialChildSize: 0.85,
+      initialChildSize: isDirectory ? 0.8 : 0.9,
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
             color: theme.cardColor,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            boxShadow: [
+            boxShadow: const [
               BoxShadow(
                 color: Colors.black12,
                 blurRadius: 10,
@@ -58,14 +61,13 @@ class _BottomSheetForSingleFileOperationState
             ],
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               HeaderForSingleFileOperation(
                 fileData: fileData,
                 path: widget.path,
               ),
               const Divider(height: 24, thickness: 1),
-              // Actions grid
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -76,6 +78,39 @@ class _BottomSheetForSingleFileOperationState
                   ),
                 ),
               ),
+              const Divider(thickness: 1),
+              if (!FileSystemEntity.isDirectorySync(widget.path))
+                InkWell(
+                  splashColor: Colors.grey,
+                  onTap: () async {
+                    final params = ShareParams(files: [XFile(widget.path)]);
+                    final result = await SharePlus.instance.share(params);
+
+                    if (result.status == ShareResultStatus.dismissed) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).clearSnackBars();
+                      }
+                    }
+                  },
+                  child: Row(
+                    children: const [
+                      Padding(
+                        padding: EdgeInsets.only(left: 35.0, top: 12.0),
+                        child: Icon(Icons.share),
+                      ),
+                      SizedBox(width: 8),
+                      Padding(
+                        padding: EdgeInsets.only(top: 12.0),
+                        child: Text(
+                          "Share",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (!FileSystemEntity.isDirectorySync(widget.path))
+                SizedBox(height: 20),
             ],
           ),
         );

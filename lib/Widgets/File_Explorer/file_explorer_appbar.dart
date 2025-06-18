@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:file_manager/Helpers/add_folder_dialog.dart';
 import 'package:file_manager/Providers/file_explorer_notifier.dart';
 import 'package:file_manager/Providers/selction_notifier.dart';
@@ -10,6 +12,7 @@ import 'package:file_manager/Widgets/popup_menu_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
+import 'package:share_plus/share_plus.dart';
 
 class FileExplorerAppBar extends ConsumerWidget {
   const FileExplorerAppBar({super.key, this.initialPath});
@@ -58,7 +61,7 @@ class FileExplorerAppBar extends ConsumerWidget {
           actions: selectionState.isSelectionMode
               ? [
                   IconButton(
-                    icon: Icon(Icons.delete),
+                    icon: Icon(Icons.delete, size: 20),
                     onPressed: () async {
                       final names = selectionState.selectedPaths
                           .map((e) => p.basename(e))
@@ -99,11 +102,11 @@ class FileExplorerAppBar extends ConsumerWidget {
                     },
                   ),
                   IconButton(
-                    icon: Icon(Icons.copy),
+                    icon: Icon(Icons.copy, size: 20),
                     onPressed: () {
                       showModalBottomSheet(
                         context: context,
-                        useSafeArea:true,
+                        useSafeArea: true,
                         isScrollControlled: true,
                         builder: (context) => BottomSheetForPasteOperation(
                           selectedPaths: Set<String>.from(
@@ -118,11 +121,11 @@ class FileExplorerAppBar extends ConsumerWidget {
                     },
                   ),
                   IconButton(
-                    icon: Icon(Icons.drive_file_move),
+                    icon: Icon(Icons.drive_file_move, size: 20),
                     onPressed: () {
                       showModalBottomSheet(
                         context: context,
-                        useSafeArea:true,
+                        useSafeArea: true,
                         isScrollControlled: true,
                         builder: (context) => BottomSheetForPasteOperation(
                           selectedPaths: Set<String>.from(
@@ -136,8 +139,58 @@ class FileExplorerAppBar extends ConsumerWidget {
                       });
                     },
                   ),
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final selectionState = ref.watch(selectionProvider);
+                      final selectionNotifier = ref.read(
+                        selectionProvider.notifier,
+                      );
+
+                      // Check if any selected path is a folder
+                      final containsFolder = selectionState.selectedPaths.any(
+                        (path) => FileSystemEntity.isDirectorySync(path),
+                      );
+
+                      return Row(
+                        children: [
+                          if (!containsFolder)
+                            IconButton(
+                              icon: Icon(Icons.share, size: 20),
+                              onPressed: () async {
+                                final filesToShare = selectionState
+                                    .selectedPaths
+                                    .where((path) {
+                                      final file = File(path);
+                                      return file.existsSync() &&
+                                          file.statSync().type !=
+                                              FileSystemEntityType.directory;
+                                    })
+                                    .toList();
+
+                                if (filesToShare.isNotEmpty) {
+                                  final xFiles = filesToShare
+                                      .map((e) => XFile(e))
+                                      .toList();
+                                  await Share.shareXFiles(xFiles);
+                                  selectionNotifier
+                                      .clearSelection(); // Dismiss selection mode
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text("No valid files to share."),
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                          // Other icons like delete, copy, etc. can go here
+                        ],
+                      );
+                    },
+                  ),
+
                   IconButton(
-                    icon: Icon(Icons.close),
+                    icon: Icon(Icons.close, size: 20),
                     onPressed: selectionNotifier.clearSelection,
                   ),
                 ]
@@ -155,12 +208,24 @@ class FileExplorerAppBar extends ConsumerWidget {
                     icon: Icon(Icons.search),
                   ),
                   PopupMenuWidget(
-                    showAddFolderDialog: showAddFolderDialog,
                     popupList: ["Create Folder", "Sorting"],
-                    currentSortValue: currentState.sortValue,
-                    onSortChanged: (value) {
-                      notifier.setSortValue(value);
+                    currentPath: currentState.currentPath,
+                    currentSortValue: ref
+                        .watch(fileExplorerProvider(currentState.currentPath))
+                        .sortValue,
+                    setSortValue: (sortValue, {forCurrentPath = false}) {
+                      return ref
+                          .read(
+                            fileExplorerProvider(
+                              currentState.currentPath,
+                            ).notifier,
+                          )
+                          .setSortValue(
+                            sortValue,
+                            forCurrentPath: forCurrentPath,
+                          );
                     },
+                    showPathSpecificOption: true, // 👈 Show toggle here only
                   ),
                 ],
         ),

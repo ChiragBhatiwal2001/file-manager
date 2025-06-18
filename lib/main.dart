@@ -27,8 +27,10 @@ class MyApp extends StatelessWidget {
       seedColor: seedColor,
       brightness: Brightness.dark,
     );
+    final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
     return MaterialApp(
+      navigatorObservers: [routeObserver],
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system,
       theme: _buildCustomTheme(lightColorScheme, Brightness.light),
@@ -58,7 +60,7 @@ class MyApp extends StatelessWidget {
       cardTheme: CardThemeData().copyWith(
         elevation: 3,
         color: scheme.secondaryContainer,
-        ),
+      ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,

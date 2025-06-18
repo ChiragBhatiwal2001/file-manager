@@ -1,4 +1,3 @@
-import 'package:file_manager/Helpers/add_folder_dialog.dart';
 import 'package:flutter/material.dart';
 
 class PopupMenuWidget extends StatelessWidget {
@@ -6,13 +5,20 @@ class PopupMenuWidget extends StatelessWidget {
   final VoidCallback? showAddFolderDialog;
   final void Function(String sortValue)? onSortChanged;
   final String? currentSortValue;
+  final String? currentPath;
+  final Future<void> Function(String sortValue, {bool forCurrentPath})?
+  setSortValue;
+  final bool showPathSpecificOption;
 
-  PopupMenuWidget({
+  const PopupMenuWidget({
     super.key,
-    this.showAddFolderDialog,
     required this.popupList,
+    this.showAddFolderDialog,
     this.onSortChanged,
-    this.currentSortValue,
+    required this.currentSortValue,
+    this.currentPath,
+    this.setSortValue,
+    this.showPathSpecificOption = false, // default is false
   });
 
   @override
@@ -22,46 +28,54 @@ class PopupMenuWidget extends StatelessWidget {
         if (value == "Sorting") {
           String initialSortBy = "name";
           String initialSortOrder = "asc";
+
           if (currentSortValue != null && currentSortValue!.contains("-")) {
             final parts = currentSortValue!.split("-");
             initialSortBy = parts[0];
             initialSortOrder = parts[1];
           }
+
           await showDialog(
             context: context,
             builder: (context) {
               String _sortBy = initialSortBy;
               String _sortOrder = initialSortOrder;
+              bool _applyToCurrentPath = false;
+
               return StatefulBuilder(
                 builder: (context, setState) => AlertDialog(
-                  title: Text("Sort By"),
+                  title: const Text("Sort By"),
                   content: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       RadioListTile(
-                        title: Text("Name"),
+                        title: const Text("Name"),
                         value: "name",
                         groupValue: _sortBy,
-                        onChanged: (val) {
-                          setState(() => _sortBy = val as String);
-                        },
+                        onChanged: (val) =>
+                            setState(() => _sortBy = val as String),
                       ),
                       RadioListTile(
-                        title: Text("Size"),
+                        title: const Text("Size"),
                         value: "size",
                         groupValue: _sortBy,
-                        onChanged: (val) {
-                          setState(() => _sortBy = val as String);
-                        },
+                        onChanged: (val) =>
+                            setState(() => _sortBy = val as String),
                       ),
                       RadioListTile(
-                        title: Text("Last Modified"),
+                        title: const Text("Last Modified"),
                         value: "modified",
                         groupValue: _sortBy,
-                        onChanged: (val) {
-                          setState(() => _sortBy = val as String);
-                        },
+                        onChanged: (val) =>
+                            setState(() => _sortBy = val as String),
                       ),
+                      if (showPathSpecificOption)
+                        SwitchListTile(
+                          title: const Text("only this folder"),
+                          value: _applyToCurrentPath,
+                          onChanged: (val) =>
+                              setState(() => _applyToCurrentPath = val),
+                        ),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -71,9 +85,10 @@ class PopupMenuWidget extends StatelessWidget {
                               Navigator.pop(context, {
                                 "sortBy": _sortBy,
                                 "sortOrder": _sortOrder,
+                                "applyToCurrentPath": _applyToCurrentPath,
                               });
                             },
-                            child: Text("Descending"),
+                            child: const Text("Descending"),
                           ),
                           TextButton(
                             onPressed: () {
@@ -81,9 +96,10 @@ class PopupMenuWidget extends StatelessWidget {
                               Navigator.pop(context, {
                                 "sortBy": _sortBy,
                                 "sortOrder": _sortOrder,
+                                "applyToCurrentPath": _applyToCurrentPath,
                               });
                             },
-                            child: Text("Ascending"),
+                            child: const Text("Ascending"),
                           ),
                         ],
                       ),
@@ -92,9 +108,17 @@ class PopupMenuWidget extends StatelessWidget {
                 ),
               );
             },
-          ).then((result) {
-            if (result != null && onSortChanged != null) {
-              onSortChanged!('${result["sortBy"]}-${result["sortOrder"]}');
+          ).then((result) async {
+            if (result == null) return;
+
+            final combinedSort = '${result["sortBy"]}-${result["sortOrder"]}';
+            final bool forCurrentPath = result["applyToCurrentPath"] ?? true;
+
+            if (setSortValue != null) {
+              await setSortValue!(combinedSort, forCurrentPath: forCurrentPath);
+            }
+            if (onSortChanged != null) {
+              onSortChanged!(combinedSort);
             }
           });
         } else if (value == "Create Folder") {
@@ -103,7 +127,7 @@ class PopupMenuWidget extends StatelessWidget {
           }
         }
       },
-      icon: Icon(Icons.more_vert_sharp),
+      icon: const Icon(Icons.more_vert_sharp),
       itemBuilder: (context) => popupList.map((item) {
         return PopupMenuItem(value: item, child: Text(item));
       }).toList(),

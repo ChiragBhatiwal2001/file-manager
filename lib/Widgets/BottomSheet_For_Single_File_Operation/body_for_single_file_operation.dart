@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:file_manager/Helpers/rename_dialog.dart';
 import 'package:file_manager/Services/file_operations.dart';
 import 'package:file_manager/Services/get_meta_data.dart';
-import 'package:file_manager/Services/sqflite_favorites.dart';
+import 'package:file_manager/Services/sqflite_favorites_db.dart';
 import 'package:file_manager/Widgets/bottom_sheet_paste_operation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;

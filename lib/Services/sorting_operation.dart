@@ -11,6 +11,24 @@ class SortingOperation {
     required this.fileData,
   });
 
+  // Add these helper functions inside SortingOperation
+  int safeLength(File f) {
+    try {
+      return f.lengthSync();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  DateTime safeModified(File f) {
+    try {
+      return f.statSync().modified;
+    } catch (_) {
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+  }
+
+// Update your sortFileAndFolder method:
   void sortFileAndFolder() {
     final parts = filterItem.split('-');
     final sortBy = parts[0];
@@ -22,16 +40,16 @@ class SortingOperation {
     switch (sortBy) {
       case "name":
         folderData.sort(
-          (a, b) => compare(a.path.toLowerCase(), b.path.toLowerCase()),
+              (a, b) => compare(a.path.toLowerCase(), b.path.toLowerCase()),
         );
         fileData.sort(
-          (a, b) => compare(a.path.toLowerCase(), b.path.toLowerCase()),
+              (a, b) => compare(a.path.toLowerCase(), b.path.toLowerCase()),
         );
         break;
       case "size":
         fileData.sort((a, b) {
-          final aSize = File(a.path).lengthSync();
-          final bSize = File(b.path).lengthSync();
+          final aSize = safeLength(File(a.path));
+          final bSize = safeLength(File(b.path));
           return sortOrder == 'asc'
               ? aSize.compareTo(bSize)
               : bSize.compareTo(aSize);
@@ -39,15 +57,15 @@ class SortingOperation {
         break;
       case "modified":
         folderData.sort((a, b) {
-          final aTime = File(a.path).statSync().modified;
-          final bTime = File(b.path).statSync().modified;
+          final aTime = safeModified(File(a.path));
+          final bTime = safeModified(File(b.path));
           return sortOrder == 'asc'
               ? aTime.compareTo(bTime)
               : bTime.compareTo(aTime);
         });
         fileData.sort((a, b) {
-          final aTime = File(a.path).statSync().modified;
-          final bTime = File(b.path).statSync().modified;
+          final aTime = safeModified(File(a.path));
+          final bTime = safeModified(File(b.path));
           return sortOrder == 'asc'
               ? aTime.compareTo(bTime)
               : bTime.compareTo(aTime);

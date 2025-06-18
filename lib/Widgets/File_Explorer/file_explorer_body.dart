@@ -12,7 +12,8 @@ import 'package:path/path.dart' as p;
 import 'package:flutter/material.dart';
 
 class FileExplorerBody extends ConsumerStatefulWidget {
-  final StateNotifierProvider<FileExplorerNotifier, FileExplorerState> providerInstance;
+  final StateNotifierProvider<FileExplorerNotifier, FileExplorerState>
+  providerInstance;
 
   const FileExplorerBody({super.key, required this.providerInstance});
 

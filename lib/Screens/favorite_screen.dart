@@ -1,5 +1,5 @@
 import 'package:file_manager/Screens/file_explorer_screen.dart';
-import 'package:file_manager/Services/sqflite_favorites.dart';
+import 'package:file_manager/Services/sqflite_favorites_db.dart';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 

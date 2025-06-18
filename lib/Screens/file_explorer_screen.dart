@@ -14,7 +14,8 @@ class FileExplorerScreen extends ConsumerStatefulWidget {
   ConsumerState<FileExplorerScreen> createState() => _FileExplorerScreenState();
 }
 
-class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> {
+class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen>
+    with RouteAware {
   late final providerInstance;
 
   @override
@@ -25,10 +26,20 @@ class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> {
     );
   }
 
+  final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    Future.microtask(() {
+      ref
+          .read(fileExplorerProvider(widget.initialPath).notifier)
+          .loadAllContentOfPath(widget.initialPath!);
+    });
+  }
+
   @override
   void dispose() {
-    ref.invalidate(providerInstance);
-    ref.invalidate(fileExplorerProvider(Constant.internalPath));
     super.dispose();
   }
 
@@ -41,6 +52,7 @@ class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> {
       canPop: explorerState.currentPath == Constant.internalPath,
       onPopInvoked: (didPop) async {
         if (!didPop && explorerState.currentPath != Constant.internalPath) {
+          if (!mounted) return;
           await notifier.goBack(explorerState.currentPath, context);
         }
       },

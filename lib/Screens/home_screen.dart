@@ -1,10 +1,9 @@
-import 'package:external_path/external_path.dart';
 import 'package:file_manager/Screens/favorite_screen.dart';
 import 'package:file_manager/Screens/file_explorer_screen.dart';
 import 'package:file_manager/Screens/quick_access_screen.dart';
+import 'package:file_manager/Screens/recent_added_screen.dart';
 import 'package:file_manager/Screens/recently_deleted_screen.dart';
 import 'package:file_manager/Screens/search_screen.dart';
-import 'package:file_manager/Services/recent_added_screen.dart';
 import 'package:file_manager/Services/recycler_bin.dart';
 import 'package:file_manager/Widgets/container_home_widget.dart';
 import 'package:flutter/material.dart';
