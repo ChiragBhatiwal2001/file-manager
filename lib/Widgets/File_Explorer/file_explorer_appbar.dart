@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:file_manager/Helpers/add_folder_dialog.dart';
 import 'package:file_manager/Providers/file_explorer_notifier.dart';
 import 'package:file_manager/Providers/selction_notifier.dart';
@@ -8,7 +7,7 @@ import 'package:file_manager/Services/file_operations.dart';
 import 'package:file_manager/Utils/constant.dart';
 import 'package:file_manager/Widgets/bottom_sheet_paste_operation.dart';
 import 'package:file_manager/Widgets/breadcrumb_widget.dart';
-import 'package:file_manager/Widgets/popup_menu_widget.dart';
+import 'package:file_manager/Widgets/setting_popup_menu_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
@@ -93,11 +92,61 @@ class FileExplorerAppBar extends ConsumerWidget {
                       );
 
                       if (confirmed == true) {
-                        for (final path in selectionState.selectedPaths) {
-                          await FileOperations().deleteOperation(path);
-                        }
-                        selectionNotifier.clearSelection();
-                        notifier.loadAllContentOfPath(currentState.currentPath);
+                        await showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) {
+                            double progress = 0;
+                            return StatefulBuilder(
+                              builder: (context, setState) {
+                                FileOperations()
+                                    .deleteMultiple(
+                                      selectionState.selectedPaths.toList(),
+                                      onProgress: (p) =>
+                                          setState(() => progress = p),
+                                    )
+                                    .then((_) {
+                                      Navigator.pop(
+                                        context,
+                                      ); // Close progress dialog
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: Text('Delete Complete'),
+                                          content: Text(
+                                            'Selected items deleted successfully.',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context),
+                                              child: Text('OK'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      selectionNotifier.clearSelection();
+                                      notifier.loadAllContentOfPath(
+                                        currentState.currentPath,
+                                      );
+                                    });
+                                return AlertDialog(
+                                  title: Text('Deleting...'),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      LinearProgressIndicator(value: progress),
+                                      SizedBox(height: 16),
+                                      Text(
+                                        '${(progress * 100).toStringAsFixed(0)}%',
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        );
                       }
                     },
                   ),
@@ -172,8 +221,7 @@ class FileExplorerAppBar extends ConsumerWidget {
                                       .map((e) => XFile(e))
                                       .toList();
                                   await Share.shareXFiles(xFiles);
-                                  selectionNotifier
-                                      .clearSelection(); // Dismiss selection mode
+                                  selectionNotifier.clearSelection();
                                 } else {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -183,7 +231,6 @@ class FileExplorerAppBar extends ConsumerWidget {
                                 }
                               },
                             ),
-                          // Other icons like delete, copy, etc. can go here
                         ],
                       );
                     },
@@ -207,7 +254,7 @@ class FileExplorerAppBar extends ConsumerWidget {
                     },
                     icon: Icon(Icons.search),
                   ),
-                  PopupMenuWidget(
+                  SettingPopupMenuWidget(
                     popupList: ["Create Folder", "Sorting"],
                     currentPath: currentState.currentPath,
                     currentSortValue: ref
@@ -225,7 +272,8 @@ class FileExplorerAppBar extends ConsumerWidget {
                             forCurrentPath: forCurrentPath,
                           );
                     },
-                    showPathSpecificOption: true, // 👈 Show toggle here only
+                    showAddFolderDialog: showAddFolderDialog,
+                    showPathSpecificOption: true,
                   ),
                 ],
         ),

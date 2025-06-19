@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:file_manager/Providers/favorite_notifier.dart';
 import 'package:file_manager/Screens/favorite_screen.dart';
 import 'package:file_manager/Screens/file_explorer_screen.dart';
 import 'package:file_manager/Screens/quick_access_screen.dart';
@@ -5,23 +8,25 @@ import 'package:file_manager/Screens/recent_added_screen.dart';
 import 'package:file_manager/Screens/recently_deleted_screen.dart';
 import 'package:file_manager/Screens/search_screen.dart';
 import 'package:file_manager/Services/recycler_bin.dart';
+import 'package:file_manager/Utils/MediaUtils.dart';
 import 'package:file_manager/Widgets/container_home_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:file_manager/Services/media_scanner.dart';
 import 'package:file_manager/Utils/constant.dart';
 import 'package:flutter/services.dart';
+import 'package:external_path/external_path.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? internalStorage;
-  static const _channel = MethodChannel('com.example.file_manager/storage');
 
   @override
   void initState() {
@@ -30,19 +35,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<bool> _requestAllMediaPermissions() async {
-    final permissions = [
-      Permission.manageExternalStorage,
-      Permission.photos,
-      Permission.videos,
-      Permission.audio,
-    ];
-    final statuses = await permissions.request();
-    return statuses.values.every((status) => status.isGranted);
+    final deviceInfo = DeviceInfoPlugin();
+    final androidInfo = await deviceInfo.androidInfo;
+    if (androidInfo.version.sdkInt < 29) {
+      final status = await Permission.storage.request();
+      return status.isGranted;
+    } else {
+      final permissions = [
+        Permission.manageExternalStorage,
+        Permission.photos,
+        Permission.videos,
+        Permission.audio,
+      ];
+      final statuses = await permissions.request();
+      return statuses.values.every((status) => status.isGranted);
+    }
   }
 
   Future<void> getStoragePath() async {
-    final path = await _channel.invokeMethod<String>('getInternalStoragePath');
-    internalStorage = path;
+    final path = await ExternalPath.getExternalStorageDirectories();
+    internalStorage = path![0];
     Constant.internalPath = internalStorage!;
   }
 
@@ -68,6 +80,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final favorites = ref.watch(favoritesProvider);
+    final topFavorites = favorites.take(4).toList();
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
@@ -238,7 +252,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-
               // Utility Section
               Card(
                 elevation: 2,
@@ -247,21 +260,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: Column(
                   children: [
-                    ContainerHomeScreen(
-                      title: "Favorites",
-                      icon: Icons.favorite,
-                      onTap: () async {
-                        checkForPermissions();
-                        await getStoragePath();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const FavoriteScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    const Divider(height: 1, color: Colors.grey),
                     ContainerHomeScreen(
                       title: "Recent Files",
                       icon: Icons.file_download_sharp,
@@ -292,6 +290,144 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Favorites",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: theme.colorScheme.secondary,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final favorites = ref.watch(favoritesProvider);
+                          final topFavorites = favorites.take(4).toList();
+                          if (topFavorites.isEmpty) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 16.0,
+                              ),
+                              child: Center(child: Text("No favorites yet.")),
+                            );
+                          }
+                          return Row(
+                            children: List.generate(4, (index) {
+                              if (index >= topFavorites.length) {
+                                return Expanded(child: SizedBox());
+                              }
+                              final path = topFavorites[index];
+                              final name = path.split("/").last;
+                              final isDir = FileSystemEntity.isDirectorySync(
+                                path,
+                              );
+                              return Expanded(
+                                child: GestureDetector(
+                                  onTap: () async {
+                                    final isGranted = await _requestAllMediaPermissions();
+                                    if (!isGranted) {
+                                      ScaffoldMessenger.of(context).clearSnackBars();
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Please grant all permissions to continue.'),
+                                          duration: Duration(seconds: 2),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    await getStoragePath();
+                                    if (isDir) {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              FileExplorerScreen(
+                                                initialPath:path,
+                                              ),
+                                        ),
+                                      );
+                                    } else {
+                                      OpenFilex.open(path);
+                                    }
+                                  },
+                                  child: Card(
+                                    elevation: 1,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8.0),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                        horizontal: 6,
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            isDir
+                                                ? Icons.folder
+                                                : Icons.insert_drive_file,
+                                            size: 28,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(fontSize: 12),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final isGranted = await _requestAllMediaPermissions();
+                            if (!isGranted) {
+                              ScaffoldMessenger.of(context).clearSnackBars();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Please grant all permissions to continue.'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                              return;
+                            }
+                            await getStoragePath();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const FavoriteScreen(),
+                              ),
+                            );
+                          },
+                          child: const Text("Show More"),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

@@ -1,5 +1,5 @@
 import 'dart:io';
-
+import 'package:file_manager/Utils/MediaUtils.dart';
 import 'package:file_manager/Services/media_scanner.dart';
 import 'package:file_manager/Widgets/recent_added_content_widget.dart';
 import 'package:flutter/material.dart';

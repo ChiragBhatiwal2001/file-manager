@@ -1,3 +1,4 @@
+import 'package:file_manager/Providers/selction_notifier.dart';
 import 'package:file_manager/Utils/constant.dart';
 import 'package:file_manager/Widgets/File_Explorer/file_explorer_appbar.dart';
 import 'package:file_manager/Widgets/File_Explorer/file_explorer_body.dart';
@@ -47,13 +48,23 @@ class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen>
   Widget build(BuildContext context) {
     final explorerState = ref.watch(providerInstance);
     final notifier = ref.watch(providerInstance.notifier);
+    final selectionState = ref.watch(selectionProvider);
+    final selectionNotifier = ref.read(selectionProvider.notifier);
 
     return PopScope(
-      canPop: explorerState.currentPath == Constant.internalPath,
+      canPop: false,
       onPopInvoked: (didPop) async {
+        if (selectionState.isSelectionMode) {
+          selectionNotifier.clearSelection();
+          return;
+        }
         if (!didPop && explorerState.currentPath != Constant.internalPath) {
           if (!mounted) return;
           await notifier.goBack(explorerState.currentPath, context);
+        } else if (!didPop && explorerState.currentPath == Constant.internalPath) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
         }
       },
       child: Scaffold(

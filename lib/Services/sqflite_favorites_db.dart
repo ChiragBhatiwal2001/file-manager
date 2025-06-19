@@ -25,21 +25,26 @@ class FavoritesDB {
       version: 1,
       onCreate: (db, version) async {
         await db.execute('''
-          CREATE TABLE favorites (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            path TEXT UNIQUE NOT NULL,
-            isFolder INTEGER NOT NULL
-          )
-        ''');
+    CREATE TABLE favorites (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      path TEXT UNIQUE NOT NULL,
+      isFolder INTEGER NOT NULL,
+      orderIndex INTEGER NOT NULL
+    )
+  ''');
       },
     );
   }
 
   Future<void> addFavorite(String path, bool isFolder) async {
     final db = await database;
+    // Get current max orderIndex
+    final result = await db.rawQuery('SELECT MAX(orderIndex) as maxOrder FROM favorites');
+    final maxOrder = result.first['maxOrder'] as int? ?? -1;
     await db.insert('favorites', {
       'path': path,
       'isFolder': isFolder ? 1 : 0,
+      'orderIndex': maxOrder + 1,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
@@ -51,6 +56,26 @@ class FavoritesDB {
   Future<List<Map<String, dynamic>>> getAllFavorites() async {
     final db = await database;
     return await db.query('favorites');
+  }
+
+  Future<void> updateFavoritesOrder(List<String> orderedPaths) async {
+    final db = await database;
+    final batch = db.batch();
+    for (int i = 0; i < orderedPaths.length; i++) {
+      batch.update(
+        'favorites',
+        {'orderIndex': i},
+        where: 'path = ?',
+        whereArgs: [orderedPaths[i]],
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  Future<List<String>> getFavoritesOrdered() async {
+    final db = await database;
+    final result = await db.query('favorites', orderBy: 'orderIndex ASC');
+    return result.map((row) => row['path'] as String).toList();
   }
 
   Future<bool> isFavorite(String path) async {

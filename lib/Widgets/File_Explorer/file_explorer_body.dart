@@ -1,9 +1,10 @@
-import 'dart:io';
+import 'package:file_manager/Utils/MediaUtils.dart';
+import 'package:flutter/foundation.dart';
 import 'package:file_manager/Providers/file_explorer_state_model.dart';
+import 'package:file_manager/Services/thumbnail_service.dart';
 import 'package:intl/intl.dart';
 import 'package:file_manager/Providers/file_explorer_notifier.dart';
 import 'package:file_manager/Providers/selction_notifier.dart';
-import 'package:file_manager/Services/media_scanner.dart';
 import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/bottom_sheet_single_file_operations.dart';
 import 'package:file_manager/Widgets/screen_empty_widget.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,48 +23,6 @@ class FileExplorerBody extends ConsumerStatefulWidget {
 }
 
 class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
-  static const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
-  static const videoExts = ['.mp4', '.mkv', '.avi', '.3gp', '.mov'];
-  static const audioExts = ['.mp3', '.wav', '.aac', '.m4a', '.ogg'];
-  static const documentExts = [
-    '.pdf',
-    '.doc',
-    '.docx',
-    '.xls',
-    '.xlsx',
-    '.ppt',
-    '.pptx',
-    '.txt',
-  ];
-  static const apkExts = ['.apk'];
-
-  MediaType _getMediaTypeFromExtension(String path) {
-    final ext = p.extension(path).toLowerCase();
-    if (imageExts.contains(ext)) return MediaType.image;
-    if (videoExts.contains(ext)) return MediaType.video;
-    if (audioExts.contains(ext)) return MediaType.audio;
-    if (documentExts.contains(ext)) return MediaType.document;
-    if (apkExts.contains(ext)) return MediaType.apk;
-    return MediaType.other;
-  }
-
-  IconData _getIconForMedia(MediaType type) {
-    switch (type) {
-      case MediaType.image:
-        return Icons.image;
-      case MediaType.video:
-        return Icons.video_library;
-      case MediaType.audio:
-        return Icons.music_note;
-      case MediaType.document:
-        return Icons.insert_drive_file;
-      case MediaType.apk:
-        return Icons.android;
-      default:
-        return Icons.folder;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final currentState = ref.watch(widget.providerInstance);
@@ -180,8 +139,8 @@ class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
                 final filePath =
                     currentState.files[index - fileHeaderIndex - 1].path;
                 final fileName = p.basename(filePath);
-                final iconData = _getIconForMedia(
-                  _getMediaTypeFromExtension(filePath),
+                final iconData = MediaUtils.getIconForMedia(
+                  MediaUtils.getMediaTypeFromExtension(filePath),
                 );
                 final lastModifiedDate = lastModifiedMap?[filePath];
                 return ListTile(
@@ -191,7 +150,26 @@ class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  leading: CircleAvatar(child: Icon(iconData)),
+                  leading: FutureBuilder<Uint8List?>(
+                    future: ThumbnailService.getSmartThumbnail(filePath),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.done &&
+                          snapshot.hasData &&
+                          snapshot.data != null) {
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.memory(
+                            snapshot.data!,
+                            width: 40,
+                            height: 40,
+                            fit: BoxFit.cover,
+                          ),
+                        );
+                      } else {
+                        return CircleAvatar(child: Icon(iconData));
+                      }
+                    },
+                  ),
                   trailing: Consumer(
                     builder: (context, ref, _) {
                       final selectionState = ref.watch(selectionProvider);

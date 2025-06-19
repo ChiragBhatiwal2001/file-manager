@@ -36,28 +36,41 @@ class _BreadcrumbWidget extends State<BreadcrumbWidget> {
   void _updateBreadcrumbs() {
     breadcrumbList = [];
     breadcrumbNames = [];
+
     String path = widget.path;
-    if (path.startsWith(Constant.internalPath)) {
+    String root = Constant.internalPath;
+
+    // Normalize both root and path
+    path = path.replaceAll(RegExp(r'/+'), '/').trim();
+    root = root.replaceAll(RegExp(r'/+'), '/').trim();
+
+    if (!root.endsWith('/')) root = '$root/';
+    if (!path.endsWith('/')) path = '$path/';
+
+    if (path.startsWith(root)) {
       breadcrumbList.add(Constant.internalPath);
       breadcrumbNames.add('All Files');
-      String subPath = path.replaceFirst(Constant.internalPath, '');
+
+      String subPath = path.substring(root.length);
       List<String> parts = subPath.split('/')..removeWhere((e) => e.isEmpty);
       String current = Constant.internalPath;
+
       for (var part in parts) {
-        current += '/$part';
-        breadcrumbList.add(current);
+        current = '$current/$part';
+        breadcrumbList.add(current.replaceAll(RegExp(r'/+'), '/'));
         breadcrumbNames.add(part);
       }
     } else {
-      // fallback for other paths
+      // Fallback for non-internal paths
       List<String> parts = path.split('/')..removeWhere((e) => e.isEmpty);
       String current = '';
       for (var part in parts) {
-        current += '/$part';
-        breadcrumbList.add(current);
+        current = '$current/$part';
+        breadcrumbList.add(current.replaceAll(RegExp(r'/+'), '/'));
         breadcrumbNames.add(part);
       }
     }
+
     setState(() {});
   }
 

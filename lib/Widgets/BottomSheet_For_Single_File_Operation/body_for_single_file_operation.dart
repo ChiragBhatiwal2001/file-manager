@@ -1,13 +1,14 @@
 import 'dart:io';
 import 'package:file_manager/Helpers/rename_dialog.dart';
+import 'package:file_manager/Providers/favorite_notifier.dart';
 import 'package:file_manager/Services/file_operations.dart';
 import 'package:file_manager/Services/get_meta_data.dart';
-import 'package:file_manager/Services/sqflite_favorites_db.dart';
 import 'package:file_manager/Widgets/bottom_sheet_paste_operation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
-class BodyForSingleFileOperation extends StatefulWidget {
+class BodyForSingleFileOperation extends ConsumerStatefulWidget {
   const BodyForSingleFileOperation({
     super.key,
     required this.path,
@@ -20,44 +21,112 @@ class BodyForSingleFileOperation extends StatefulWidget {
   final bool isChanged;
 
   @override
-  State<BodyForSingleFileOperation> createState() =>
+  ConsumerState<BodyForSingleFileOperation> createState() =>
       _BodyForSingleFileOperationState();
 }
 
 class _BodyForSingleFileOperationState
-    extends State<BodyForSingleFileOperation> {
-
+    extends ConsumerState<BodyForSingleFileOperation> {
   Map<IconData, String> gridList = {
     Icons.copy: "Copy",
     Icons.move_down: "Move",
     Icons.drive_file_rename_outline: "Rename",
-    Icons.favorite: "Mark Favorite",
+    Icons.favorite: "Favorite",
     Icons.delete: "Delete",
     Icons.info_outline: "Details",
   };
 
-  Future<Map<String,dynamic>> getFileDetails(String path) async {
-    return await getMetadata(path);
-  }
+  Future<Map<String, dynamic>> getFileDetails(String path) async =>
+      await getMetadata(path);
 
-  Widget _detailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("$label: ", style: TextStyle(fontWeight: FontWeight.bold)),
-          Expanded(child: Text(value)),
+  Widget _detailRow(String label, String value) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4.0),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("$label: ", style: TextStyle(fontWeight: FontWeight.bold)),
+        Expanded(child: Text(value)),
+      ],
+    ),
+  );
+
+  Future<void> _showErrorDialog(BuildContext context, String msg) async {
+    if (!context.mounted) return;
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Operation Failed"),
+        content: Text(msg),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("OK"),
+          ),
         ],
       ),
     );
   }
 
+  Future<void> _showPasteSheet(BuildContext context, bool isCopy) async {
+    try {
+      await showModalBottomSheet(
+        isScrollControlled: true,
+        useSafeArea: true,
+        context: context,
+        builder: (context) => BottomSheetForPasteOperation(
+          isCopy: isCopy,
+          isSingleOperation: true,
+          selectedSinglePath: widget.path,
+        ),
+      );
+      widget.loadAgain(p.dirname(widget.path));
+    } catch (e) {
+      await _showErrorDialog(context, "${isCopy ? "Copy" : "Move"} operation failed.\n$e");
+    }
+  }
+
+  Future<void> _toggleFavorite(BuildContext context, bool isFavorite) async {
+    try {
+      await ref.read(favoritesProvider.notifier).toggleFavorite(
+        widget.path,
+        FileSystemEntity.isDirectorySync(widget.path),
+      );
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isFavorite ? "Removed from Favorites" : "Added to Favorites",
+            ),
+          ),
+        );
+      }
+      widget.loadAgain(p.dirname(widget.path));
+    } catch (e) {
+      await _showErrorDialog(context, "Favorite operation failed.\n$e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final favorites = ref.watch(favoritesProvider);
+    final isFavorite = favorites.contains(widget.path);
+
     final filteredEntries = widget.isChanged == false
-        ? gridList.entries.where((e) => e.value != "Copy" && e.value != "Move").toList()
-        : gridList.entries.toList();
+        ? gridList.entries
+        .where((e) => e.value != "Copy" && e.value != "Move")
+        .toList()
+        : gridList.entries
+        .map(
+          (e) => MapEntry(
+        e.key,
+        e.value == "Favorite"
+            ? (isFavorite ? "Remove Favorite" : "Mark Favorite")
+            : e.value,
+      ),
+    )
+        .toList();
 
     return GridView.builder(
       itemCount: filteredEntries.length,
@@ -67,56 +136,24 @@ class _BodyForSingleFileOperationState
         crossAxisCount: 3,
       ),
       itemBuilder: (context, index) {
+        final action = filteredEntries[index].value;
         return Material(
           borderRadius: BorderRadius.circular(16),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: () async {
-              final action = filteredEntries[index].value;
               switch (action) {
                 case "Copy":
                   Navigator.pop(context);
-                  showModalBottomSheet(
-                    isScrollControlled: true,
-                    useSafeArea: true,
-                    context: context,
-                    builder: (context) => BottomSheetForPasteOperation(
-                      isCopy: true,
-                      isSingleOperation: true,
-                      selectedSinglePath: widget.path,
-                    ),
-                  ).then((_) {
-                    widget.loadAgain(p.dirname(widget.path));
-                  });
+                  await _showPasteSheet(context, true);
                   break;
                 case "Move":
                   Navigator.pop(context);
-                  showModalBottomSheet(
-                    isScrollControlled: true,
-                    useSafeArea: true,
-                    context: context,
-                    builder: (context) => BottomSheetForPasteOperation(
-                      isCopy: false,
-                      isSingleOperation: true,
-                      selectedSinglePath: widget.path,
-                    ),
-                  ).then((_) {
-                    widget.loadAgain(p.dirname(widget.path));
-                  });
+                  await _showPasteSheet(context, false);
                   break;
                 case "Mark Favorite":
-                  FavoritesDB()
-                      .addFavorite(
-                        widget.path,
-                        FileSystemEntity.isDirectorySync(widget.path),
-                      )
-                      .then((_) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("Added to Favorites")),
-                        );
-                        widget.loadAgain(p.dirname(widget.path));
-                      });
+                case "Remove Favorite":
+                  await _toggleFavorite(context, isFavorite);
                   break;
                 case "Delete":
                   showDialog(
@@ -126,19 +163,21 @@ class _BodyForSingleFileOperationState
                       content: Text(p.basename(widget.path)),
                       actions: [
                         TextButton(
-                          onPressed: () async {
-                            Navigator.pop(context);
-                          },
+                          onPressed: () => Navigator.pop(context),
                           child: Text("No"),
                         ),
                         TextButton(
                           onPressed: () async {
-                            await FileOperations().deleteOperation(widget.path);
-                            if (context.mounted) {
-                              Navigator.pop(context);
-                              Navigator.pop(context);
+                            Navigator.pop(context);
+                            try {
+                              await FileOperations().deleteOperation(widget.path);
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                              }
+                              widget.loadAgain(p.dirname(widget.path));
+                            } catch (e) {
+                              await _showErrorDialog(context, "Delete operation failed.\n$e");
                             }
-                            widget.loadAgain(p.dirname(widget.path));
                           },
                           child: Text("Yes"),
                         ),
@@ -156,19 +195,16 @@ class _BodyForSingleFileOperationState
                       content: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                           _detailRow("Name", data["Name"]),
+                          _detailRow("Name", data["Name"]),
                           _detailRow("Path", data["Path"]),
                           _detailRow("Type", data["Type"]),
                           _detailRow("Last Modified", data["Modified"]),
                           _detailRow("Size", data["Size"]),
-
                         ],
                       ),
                       actions: [
                         TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
+                          onPressed: () => Navigator.pop(context),
                           child: Text("Okay"),
                         ),
                       ],
@@ -177,13 +213,17 @@ class _BodyForSingleFileOperationState
                   break;
                 case "Rename":
                   Navigator.pop(context);
-                  renameDialogBox(
-                    context: context,
-                    oldPath: widget.path,
-                    onSuccess: () {
-                      widget.loadAgain(p.dirname(widget.path));
-                    },
-                  );
+                  try {
+                    await renameDialogBox(
+                      context: context,
+                      oldPath: widget.path,
+                      onSuccess: () {
+                        widget.loadAgain(p.dirname(widget.path));
+                      },
+                    );
+                  } catch (e) {
+                    await _showErrorDialog(context, "Rename operation failed.\n$e");
+                  }
                   break;
                 default:
                   Navigator.pop(context);
@@ -195,7 +235,15 @@ class _BodyForSingleFileOperationState
               children: [
                 CircleAvatar(child: Icon(filteredEntries[index].key)),
                 const SizedBox(height: 8),
-                Text(filteredEntries[index].value),
+                Expanded(
+                  child: Text(
+                    filteredEntries[index].value,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
               ],
             ),
           ),

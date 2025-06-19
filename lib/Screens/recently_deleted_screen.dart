@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:file_manager/Services/thumbnail_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:file_manager/Services/recycler_bin.dart';
 import 'package:flutter/material.dart';
@@ -112,7 +114,37 @@ class _RecentlyDeletedScreenState extends State<RecentlyDeletedScreen> {
                     FileSystemEntityType.directory;
 
                 return ListTile(
-                  leading: Icon(isDir ? Icons.folder : Icons.insert_drive_file),
+                  leading: FutureBuilder<Uint8List?>(
+                    future: ThumbnailService.getSmartThumbnail(trashedPath),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.done &&
+                          snapshot.hasData &&
+                          snapshot.data != null) {
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          // Adjust the radius as needed
+                          child: Image.memory(
+                            snapshot.data!,
+                            width: 40,
+                            height: 40,
+                            fit: BoxFit.cover,
+                          ),
+                        );
+                      } else {
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            color: Colors.grey[200],
+                            child: isDir
+                                ? Icon(Icons.folder)
+                                : Icon(Icons.insert_drive_file),
+                          ),
+                        );
+                      }
+                    },
+                  ),
                   title: Text(p.basename(originalPath)),
                   subtitle: Text(
                     "From: $originalPath",
