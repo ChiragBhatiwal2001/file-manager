@@ -6,7 +6,7 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:pdfx/pdfx.dart';
 
 class ThumbnailService {
-  static Future<Uint8List?> getSmartThumbnail(String path) async {
+  static Future<Uint8List?> getThumbnail(String path) async {
     final ext = p.extension(path).toLowerCase();
 
     try {

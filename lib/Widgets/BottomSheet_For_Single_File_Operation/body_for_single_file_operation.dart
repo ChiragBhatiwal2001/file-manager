@@ -3,6 +3,7 @@ import 'package:file_manager/Helpers/rename_dialog.dart';
 import 'package:file_manager/Providers/favorite_notifier.dart';
 import 'package:file_manager/Services/file_operations.dart';
 import 'package:file_manager/Services/get_meta_data.dart';
+import 'package:file_manager/Services/recycler_bin.dart';
 import 'package:file_manager/Widgets/bottom_sheet_paste_operation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -81,18 +82,22 @@ class _BodyForSingleFileOperationState
       );
       widget.loadAgain(p.dirname(widget.path));
     } catch (e) {
-      await _showErrorDialog(context, "${isCopy ? "Copy" : "Move"} operation failed.\n$e");
+      await _showErrorDialog(
+        context,
+        "${isCopy ? "Copy" : "Move"} operation failed.\n$e",
+      );
     }
   }
 
   Future<void> _toggleFavorite(BuildContext context, bool isFavorite) async {
     try {
-      await ref.read(favoritesProvider.notifier).toggleFavorite(
-        widget.path,
-        FileSystemEntity.isDirectorySync(widget.path),
-      );
+      await ref
+          .read(favoritesProvider.notifier)
+          .toggleFavorite(
+            widget.path,
+            FileSystemEntity.isDirectorySync(widget.path),
+          );
       if (context.mounted) {
-        Navigator.pop(context);
         ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -115,18 +120,18 @@ class _BodyForSingleFileOperationState
 
     final filteredEntries = widget.isChanged == false
         ? gridList.entries
-        .where((e) => e.value != "Copy" && e.value != "Move")
-        .toList()
+              .where((e) => e.value != "Copy" && e.value != "Move")
+              .toList()
         : gridList.entries
-        .map(
-          (e) => MapEntry(
-        e.key,
-        e.value == "Favorite"
-            ? (isFavorite ? "Remove Favorite" : "Mark Favorite")
-            : e.value,
-      ),
-    )
-        .toList();
+              .map(
+                (e) => MapEntry(
+                  e.key,
+                  e.value == "Favorite"
+                      ? (isFavorite ? "Remove Favorite" : "Mark Favorite")
+                      : e.value,
+                ),
+              )
+              .toList();
 
     return GridView.builder(
       itemCount: filteredEntries.length,
@@ -156,35 +161,106 @@ class _BodyForSingleFileOperationState
                   await _toggleFavorite(context, isFavorite);
                   break;
                 case "Delete":
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: Text("Do you really want to delete ?"),
-                      content: Text(p.basename(widget.path)),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: Text("No"),
-                        ),
-                        TextButton(
-                          onPressed: () async {
-                            Navigator.pop(context);
-                            try {
-                              await FileOperations().deleteOperation(widget.path);
-                              if (context.mounted) {
-                                Navigator.pop(context);
-                              }
-                              widget.loadAgain(p.dirname(widget.path));
-                            } catch (e) {
-                              await _showErrorDialog(context, "Delete operation failed.\n$e");
-                            }
-                          },
-                          child: Text("Yes"),
-                        ),
-                      ],
-                    ),
-                  );
+                  bool deletePermanently = false;
+
+                  try {
+                    await showDialog(
+                      context: context,
+                      builder: (context) {
+                        return StatefulBuilder(
+                          builder: (context, setState) => AlertDialog(
+                            title: const Text("Do you really want to delete?"),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(p.basename(widget.path)),
+                                const SizedBox(height: 12),
+                                CheckboxListTile(
+                                  title: const Text("Delete permanently"),
+                                  value: deletePermanently,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      deletePermanently = val ?? false;
+                                    });
+                                  },
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text("No"),
+                              ),
+                              TextButton(
+                                onPressed: () async {
+                                  Navigator.pop(
+                                    context,
+                                  ); // close confirmation dialog
+                                  try {
+                                    if (deletePermanently) {
+                                      await RecentlyDeletedManager()
+                                          .permanentlyDelete(widget.path);
+                                    } else {
+                                      await FileOperations().deleteOperation(
+                                        widget.path,
+                                      );
+                                    }
+
+                                    if (context.mounted) {
+                                      Navigator.pop(context);
+
+                                      showDialog(
+                                        context: context,
+                                        barrierDismissible: false,
+                                        builder: (dialogContext) {
+                                          return AlertDialog(
+                                            title: Text("Successfully Deleted"),
+                                            content: Text(
+                                              "Item deleted successfully",
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () {
+                                                  if (dialogContext.mounted) {
+                                                    Navigator.pop(
+                                                      dialogContext,
+                                                    );
+                                                  }
+                                                },
+                                                child: Text("OK"),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      );
+                                    }
+
+                                    widget.loadAgain(p.dirname(widget.path));
+                                  } catch (e) {
+                                    await _showErrorDialog(
+                                      context,
+                                      "Delete operation failed.\n$e",
+                                    );
+                                  }
+                                },
+                                child: const Text("Yes"),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  } catch (e) {
+                    await _showErrorDialog(
+                      context,
+                      "Delete operation failed.\n$e",
+                    );
+                  }
                   break;
+
                 case "Details":
                   Navigator.pop(context);
                   final data = await getFileDetails(widget.path);
@@ -222,7 +298,10 @@ class _BodyForSingleFileOperationState
                       },
                     );
                   } catch (e) {
-                    await _showErrorDialog(context, "Rename operation failed.\n$e");
+                    await _showErrorDialog(
+                      context,
+                      "Rename operation failed.\n$e",
+                    );
                   }
                   break;
                 default:

@@ -1,3 +1,5 @@
+import 'package:file_manager/Providers/view_toggle_notifier.dart';
+import 'package:file_manager/Services/shared_preference.dart';
 import 'package:file_manager/Utils/MediaUtils.dart';
 import 'package:flutter/foundation.dart';
 import 'package:file_manager/Providers/file_explorer_state_model.dart';
@@ -25,6 +27,7 @@ class FileExplorerBody extends ConsumerStatefulWidget {
 class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
   @override
   Widget build(BuildContext context) {
+    final viewMode = ref.watch(fileViewModeProvider);
     final currentState = ref.watch(widget.providerInstance);
     final notifier = ref.read(widget.providerInstance.notifier);
     final lastModifiedMap = currentState.lastModifiedMap;
@@ -151,7 +154,7 @@ class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   leading: FutureBuilder<Uint8List?>(
-                    future: ThumbnailService.getSmartThumbnail(filePath),
+                    future: ThumbnailService.getThumbnail(filePath),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.done &&
                           snapshot.hasData &&

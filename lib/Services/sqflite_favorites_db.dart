@@ -38,15 +38,17 @@ class FavoritesDB {
 
   Future<void> addFavorite(String path, bool isFolder) async {
     final db = await database;
-    // Get current max orderIndex
-    final result = await db.rawQuery('SELECT MAX(orderIndex) as maxOrder FROM favorites');
-    final maxOrder = result.first['maxOrder'] as int? ?? -1;
+
+    final result = await db.rawQuery('SELECT MIN(orderIndex) as minOrder FROM favorites');
+    final minOrder = result.first['minOrder'] as int? ?? 0;
+
     await db.insert('favorites', {
       'path': path,
       'isFolder': isFolder ? 1 : 0,
-      'orderIndex': maxOrder + 1,
+      'orderIndex': minOrder - 1, // Insert on top
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
+
 
   Future<void> removeFavorite(String path) async {
     final db = await database;

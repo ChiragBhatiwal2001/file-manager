@@ -115,4 +115,4 @@ final fileExplorerProvider =
       FileExplorerNotifier,
       FileExplorerState,
       String?
-    >((ref, path) => FileExplorerNotifier(path ?? Constant.internalPath));
+    >((ref, path) => FileExplorerNotifier(path ?? Constant.internalPath!));

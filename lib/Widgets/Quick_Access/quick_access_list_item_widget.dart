@@ -6,7 +6,7 @@ import 'package:file_manager/Utils/MediaUtils.dart';
 import 'package:file_manager/Services/thumbnail_service.dart';
 import 'package:open_filex/open_filex.dart';
 
-class QuickAccessListItem extends StatelessWidget {
+class QuickAccessListItem extends StatefulWidget {
   final MediaFile file;
   final dynamic selectionState;
   final dynamic selectionNotifier;
@@ -21,60 +21,86 @@ class QuickAccessListItem extends StatelessWidget {
   });
 
   @override
+  State<QuickAccessListItem> createState() => _QuickAccessListItemState();
+}
+
+class _QuickAccessListItemState extends State<QuickAccessListItem> {
+  Uint8List? _thumbnail;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThumbnail();
+  }
+
+  void _loadThumbnail() async {
+    final thumb = await ThumbnailService.getThumbnail(widget.file.path);
+    if (mounted) {
+      setState(() {
+        _thumbnail = thumb;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final fileName = file.path.split("/").last;
+    final fileName = widget.file.path.split("/").last;
+
     return ListTile(
-      key: ValueKey(file.path),
-      leading: FutureBuilder<Uint8List?>(
-        future: ThumbnailService.getSmartThumbnail(file.path),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done &&
-              snapshot.hasData &&
-              snapshot.data != null) {
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.memory(
-                snapshot.data!,
-                width: 40,
-                height: 40,
-                fit: BoxFit.cover,
-              ),
-            );
-          } else {
-            return CircleAvatar(
-              child: Icon(MediaUtils.getIconForMedia(file.type)),
-            );
-          }
-        },
+      key: ValueKey(widget.file.path),
+      leading: _isLoading
+          ? const SizedBox(
+        width: 40,
+        height: 40,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      )
+          : _thumbnail != null
+          ? ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.memory(
+          _thumbnail!,
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+        ),
+      )
+          : CircleAvatar(
+        child: Icon(
+          MediaUtils.getIconForMedia(widget.file.type),
+        ),
       ),
       title: Text(fileName),
-      trailing: selectionState.isSelectionMode
+      trailing: widget.selectionState.isSelectionMode
           ? Checkbox(
-              value: selectionState.selectedPaths.contains(file.path),
-              onChanged: (_) => selectionNotifier.toggleSelection(file.path),
-            )
+        value: widget.selectionState.selectedPaths
+            .contains(widget.file.path),
+        onChanged: (_) =>
+            widget.selectionNotifier.toggleSelection(widget.file.path),
+      )
           : IconButton(
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  builder: (context) => BottomSheetForSingleFileOperation(
-                    path: file.path,
-                    loadAgain: getDataForDisplay,
-                  ),
-                );
-              },
-              icon: Icon(Icons.more_vert),
+        onPressed: () {
+          showModalBottomSheet(
+            context: context,
+            builder: (context) => BottomSheetForSingleFileOperation(
+              path: widget.file.path,
+              loadAgain: widget.getDataForDisplay,
             ),
+          );
+        },
+        icon: const Icon(Icons.more_vert),
+      ),
       onTap: () {
-        final isSelectionMode = selectionState.isSelectionMode;
+        final isSelectionMode = widget.selectionState.isSelectionMode;
         if (isSelectionMode) {
-          selectionNotifier.toggleSelection(file.path);
+          widget.selectionNotifier.toggleSelection(widget.file.path);
         } else {
-          OpenFilex.open(file.path);
+          OpenFilex.open(widget.file.path);
         }
       },
       onLongPress: () {
-        selectionNotifier.toggleSelection(file.path);
+        widget.selectionNotifier.toggleSelection(widget.file.path);
       },
     );
   }

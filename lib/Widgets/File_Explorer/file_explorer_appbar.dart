@@ -2,29 +2,57 @@ import 'dart:io';
 import 'package:file_manager/Helpers/add_folder_dialog.dart';
 import 'package:file_manager/Providers/file_explorer_notifier.dart';
 import 'package:file_manager/Providers/selction_notifier.dart';
-import 'package:file_manager/Screens/search_screen.dart';
+import 'package:file_manager/Providers/view_toggle_notifier.dart';
 import 'package:file_manager/Services/file_operations.dart';
+import 'package:file_manager/Services/shared_preference.dart';
 import 'package:file_manager/Utils/constant.dart';
 import 'package:file_manager/Widgets/bottom_sheet_paste_operation.dart';
 import 'package:file_manager/Widgets/breadcrumb_widget.dart';
+import 'package:file_manager/Widgets/search_bottom_sheet.dart';
 import 'package:file_manager/Widgets/setting_popup_menu_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class FileExplorerAppBar extends ConsumerWidget {
+class FileExplorerAppBar extends ConsumerStatefulWidget {
   const FileExplorerAppBar({super.key, this.initialPath});
 
   final String? initialPath;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FileExplorerAppBar> createState() {
+    return _FileExplorerAppBarState();
+  }
+}
+
+class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
+  String _viewMode = "List View";
+
+  @override
+  void initState() {
+    super.initState();
+    getListShowingPreference();
+  }
+
+  void getListShowingPreference() async {
+    final prefs = await SharedPrefsService.instance;
+    setState(() {
+      _viewMode = prefs.getString('fileViewGrid') ?? '';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fileViewMode = ref.watch(fileViewModeProvider);
     final currentState = ref.watch(
-      fileExplorerProvider(initialPath ?? Constant.internalPath),
+      fileExplorerProvider(widget.initialPath ?? Constant.internalPath),
     );
     final notifier = ref.read(
-      fileExplorerProvider(initialPath ?? Constant.internalPath).notifier,
+      fileExplorerProvider(
+        widget.initialPath ?? Constant.internalPath,
+      ).notifier,
     );
 
     final selectionState = ref.watch(selectionProvider);
@@ -67,28 +95,37 @@ class FileExplorerAppBar extends ConsumerWidget {
                           .toList();
                       final confirmed = await showDialog<bool>(
                         context: context,
-                        builder: (context) => AlertDialog(
-                          title: Text('Do you really want to delete?'),
-                          content: SizedBox(
-                            width: double.maxFinite,
-                            child: ListView(
-                              shrinkWrap: true,
-                              children: names
-                                  .map((name) => Text(name))
-                                  .toList(),
+                        builder: (context) {
+                          return AlertDialog(
+                            title: Text('Delete Permanently?'),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: double.maxFinite,
+                                  height: 120,
+                                  child: ListView(
+                                    shrinkWrap: true,
+                                    children: names
+                                        .map((name) => Text(name))
+                                        .toList(),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
                             ),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: Text('No'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: Text('Yes'),
-                            ),
-                          ],
-                        ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: Text('No'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: Text('Yes'),
+                              ),
+                            ],
+                          );
+                        },
                       );
 
                       if (confirmed == true) {
@@ -106,9 +143,7 @@ class FileExplorerAppBar extends ConsumerWidget {
                                           setState(() => progress = p),
                                     )
                                     .then((_) {
-                                      Navigator.pop(
-                                        context,
-                                      ); // Close progress dialog
+                                      Navigator.pop(context);
                                       showDialog(
                                         context: context,
                                         builder: (context) => AlertDialog(
@@ -130,6 +165,7 @@ class FileExplorerAppBar extends ConsumerWidget {
                                         currentState.currentPath,
                                       );
                                     });
+
                                 return AlertDialog(
                                   title: Text('Deleting...'),
                                   content: Column(
@@ -195,7 +231,6 @@ class FileExplorerAppBar extends ConsumerWidget {
                         selectionProvider.notifier,
                       );
 
-                      // Check if any selected path is a folder
                       final containsFolder = selectionState.selectedPaths.any(
                         (path) => FileSystemEntity.isDirectorySync(path),
                       );
@@ -235,7 +270,6 @@ class FileExplorerAppBar extends ConsumerWidget {
                       );
                     },
                   ),
-
                   IconButton(
                     icon: Icon(Icons.close, size: 20),
                     onPressed: selectionNotifier.clearSelection,
@@ -249,13 +283,20 @@ class FileExplorerAppBar extends ConsumerWidget {
                         useSafeArea: true,
                         isScrollControlled: true,
                         builder: (context) =>
-                            SearchScreen(Constant.internalPath),
+                            SearchBottomSheet(Constant.internalPath!),
                       );
                     },
                     icon: Icon(Icons.search),
                   ),
                   SettingPopupMenuWidget(
-                    popupList: ["Create Folder", "Sorting"],
+                    popupList: [
+                      "Create Folder",
+                      "Sorting",
+                      fileViewMode == "List View" ? "Grid View" : "List View",
+                    ],
+                    onViewModeChanged: (mode) async {
+                      ref.read(fileViewModeProvider.notifier).setMode(mode);
+                    },
                     currentPath: currentState.currentPath,
                     currentSortValue: ref
                         .watch(fileExplorerProvider(currentState.currentPath))

@@ -23,12 +23,10 @@ class BottomSheetForPasteOperation extends StatefulWidget {
   final bool isSingleOperation;
 
   @override
-  State<BottomSheetForPasteOperation> createState() =>
-      _BottomSheetForPasteOperationState();
+  State<BottomSheetForPasteOperation> createState() => _BottomSheetForPasteOperationState();
 }
 
-class _BottomSheetForPasteOperationState
-    extends State<BottomSheetForPasteOperation> {
+class _BottomSheetForPasteOperationState extends State<BottomSheetForPasteOperation> {
   late String currentPath;
   bool isLoading = false;
   List<FileSystemEntity> folderData = [];
@@ -37,16 +35,13 @@ class _BottomSheetForPasteOperationState
   @override
   void initState() {
     super.initState();
-    currentPath = Constant.internalPath;
+    currentPath = Constant.internalPath!;
     loadAllContentOfPath(currentPath);
   }
 
   Future<void> loadAllContentOfPath(String path) async {
     setState(() => isLoading = true);
-    final data = await compute<String, DirectoryContent>(
-      PathLoadingOperations.loadContentIsolate,
-      path,
-    );
+    final data = await compute<String, DirectoryContent>(PathLoadingOperations.loadContentIsolate, path);
     setState(() {
       currentPath = path;
       folderData = data.folders;
@@ -81,18 +76,12 @@ class _BottomSheetForPasteOperationState
 
         operation((value) {
           progress = value;
-          if (localSetState != null) {
-            localSetState(() {});
-          }
+          if (localSetState != null) localSetState(() {});
         }).then((_) {
-          if (Navigator.of(dialogContext).canPop()) {
-            Navigator.of(dialogContext).pop();
-          }
+          if (Navigator.of(dialogContext).canPop()) Navigator.of(dialogContext).pop();
         }).catchError((e) {
           error = e.toString();
-          if (Navigator.of(dialogContext).canPop()) {
-            Navigator.of(dialogContext).pop();
-          }
+          if (Navigator.of(dialogContext).canPop()) Navigator.of(dialogContext).pop();
         });
 
         return StatefulBuilder(
@@ -118,9 +107,7 @@ class _BottomSheetForPasteOperationState
       context: context,
       useRootNavigator: true,
       builder: (context) => AlertDialog(
-        title: Text(error != null
-            ? "Operation Failed"
-            : "Operation Finished Successfully"),
+        title: Text(error != null ? "Operation Failed" : "Operation Finished Successfully"),
         content: error != null ? Text(error!) : null,
         actions: [
           TextButton(
@@ -132,6 +119,68 @@ class _BottomSheetForPasteOperationState
     );
 
     return confirmed == true;
+  }
+
+  Future<void> _handlePasteOperation() async {
+    final isSameDirectory = widget.isSingleOperation &&
+        widget.selectedSinglePath != null &&
+        Directory(widget.selectedSinglePath!).parent.path == currentPath;
+
+    final isSameDirectoryMulti = widget.selectedPaths != null &&
+        widget.selectedPaths!.every((path) => Directory(path).parent.path == currentPath);
+
+    if (isSameDirectory || isSameDirectoryMulti) {
+      showDialog(
+        context: context,
+        builder: (_) => const AlertDialog(
+          title: Text("Invalid Operation"),
+          content: Text("You can't paste into the same directory."),
+        ),
+      );
+      return;
+    }
+
+    final rootContext = Navigator.of(context, rootNavigator: true).context;
+    Navigator.of(context).pop();
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    await _showProgressDialog(
+      rootContext,
+          (onProgress) async {
+        if (widget.isSingleOperation && widget.selectedSinglePath != null) {
+          await FileOperations().pasteFileToDestination(
+            widget.isCopy,
+            currentPath,
+            widget.selectedSinglePath!,
+            onProgress: onProgress,
+          );
+        } else if (widget.selectedPaths != null && widget.selectedPaths!.isNotEmpty) {
+          final paths = widget.selectedPaths!.toList();
+          int totalSize = 0;
+          for (var path in paths) {
+            totalSize += await FileOperations().getEntitySize(path);
+          }
+
+          int copied = 0;
+          for (var path in paths) {
+            await FileOperations().pasteFileToDestination(
+              widget.isCopy,
+              currentPath,
+              path,
+              onProgress: (progress) {
+                FileOperations().getEntitySize(path).then((size) {
+                  onProgress(((copied + (progress * size)) / totalSize).clamp(0, 1));
+                });
+              },
+            );
+            copied += await FileOperations().getEntitySize(path);
+          }
+
+          onProgress(1.0);
+          widget.selectedPaths!.clear();
+        }
+      },
+    );
   }
 
   @override
@@ -146,196 +195,134 @@ class _BottomSheetForPasteOperationState
 
         return Column(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                TextButton(
-                  onPressed: () => goBack(currentPath),
-                  child: const Text("Back", style: TextStyle(fontSize: 16)),
-                ),
-                const Spacer(),
-                Text(
-                  "${currentPath.split("/").last == "0" ? "All Files" : currentPath.split("/").last}",
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () {
-                    addFolderDialog(
-                      context: context,
-                      parentPath: currentPath,
-                      onSuccess: () => loadAllContentOfPath(currentPath),
-                    );
-                  },
-                  child: const Text("Create", style: TextStyle(fontSize: 16)),
-                ),
-              ],
-            ),
+            _buildHeader(),
             BreadcrumbWidget(
-              path: Constant.internalPath,
+              path: Constant.internalPath!,
               loadContent: loadAllContentOfPath,
             ),
-            isEmpty
-                ? const Expanded(child: ScreenEmptyWidget())
-                : Expanded(
-              child: CustomScrollView(
-                controller: scrollController,
-                slivers: [
-                  if (folderData.isNotEmpty) ...[
-                    const SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.only(left: 12, top: 8),
-                        child: Text(
-                          "Folders",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: Colors.indigoAccent,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                          final folder = folderData[index];
-                          final folderName = folder.path
-                              .split(Platform.pathSeparator)
-                              .last;
-                          return ListTile(
-                            leading: const CircleAvatar(
-                              child: Icon(Icons.folder),
-                            ),
-                            title: Text(
-                              folderName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            onTap: () => loadAllContentOfPath(folder.path),
-                          );
-                        },
-                        childCount: folderData.length,
-                      ),
-                    ),
-                  ],
-                  if (fileData.isNotEmpty) ...[
-                    const SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.only(left: 12, top: 12),
-                        child: Text(
-                          "Files",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: Colors.indigoAccent,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                          final file = fileData[index];
-                          final fileName = file.path
-                              .split(Platform.pathSeparator)
-                              .last;
-                          return ListTile(
-                            leading: const Icon(
-                              Icons.insert_drive_file,
-                              color: Colors.blueGrey,
-                            ),
-                            title: Text(
-                              fileName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            onTap: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) => const AlertDialog(
-                                  title: Text("Invalid operation"),
-                                  content: Text("You are in selection mode."),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                        childCount: fileData.length,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(
-                bottom: 8.0,
-                left: 24.0,
-                right: 24.0,
-                top: 14.0,
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
-                  ),
-                  onPressed: () async {
-                    final shouldPop = await _showProgressDialog(
-                      context,
-                          (onProgress) async {
-                        if (widget.isSingleOperation &&
-                            widget.selectedSinglePath != null) {
-                          await FileOperations().pasteFileToDestination(
-                            widget.isCopy,
-                            currentPath,
-                            widget.selectedSinglePath!,
-                            onProgress: onProgress,
-                          );
-                        } else if (widget.selectedPaths != null &&
-                            widget.selectedPaths!.isNotEmpty) {
-                          final paths = widget.selectedPaths!.toList();
-                          int totalSize = 0;
-                          for (var path in paths) {
-                            totalSize += await FileOperations().getEntitySize(path);
-                          }
-                          int copied = 0;
-                          for (var path in paths) {
-                            await FileOperations().pasteFileToDestination(
-                              widget.isCopy,
-                              currentPath,
-                              path,
-                              onProgress: (progress) {
-                                FileOperations().getEntitySize(path).then((size) {
-                                  onProgress(
-                                    ((copied + (progress * size)) / totalSize)
-                                        .clamp(0, 1),
-                                  );
-                                });
-                              },
-                            );
-                            copied += await FileOperations().getEntitySize(path);
-                          }
-                          onProgress(1.0);
-                          widget.selectedPaths!.clear();
-                        }
-                      },
-                    );
-
-                    if (shouldPop && mounted) {
-                      Navigator.of(context).pop(); // Close the bottom sheet
-                    }
-                  },
-                  child: const Text(
-                    "Paste Here",
-                    style: TextStyle(fontSize: 18, color: Colors.white),
-                  ),
-                ),
-              ),
-            ),
+            isEmpty ? const Expanded(child: ScreenEmptyWidget()) : _buildContent(scrollController),
+            _buildPasteButton(),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        TextButton(
+          onPressed: () => goBack(currentPath),
+          child: const Text("Back", style: TextStyle(fontSize: 16)),
+        ),
+        const Spacer(),
+        Text(
+          currentPath.split("/").last == "0" ? "All Files" : currentPath.split("/").last,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        ),
+        const Spacer(),
+        TextButton(
+          onPressed: () {
+            addFolderDialog(
+              context: context,
+              parentPath: currentPath,
+              onSuccess: () => loadAllContentOfPath(currentPath),
+            );
+          },
+          child: const Text("Create", style: TextStyle(fontSize: 16)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContent(ScrollController scrollController) {
+    return Expanded(
+      child: CustomScrollView(
+        controller: scrollController,
+        slivers: [
+          if (folderData.isNotEmpty) ...[
+            _buildSectionHeader("Folders"),
+            _buildFolderList(),
+          ],
+          if (fileData.isNotEmpty) ...[
+            _buildSectionHeader("Files"),
+            _buildFileList(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.only(left: 12, top: 12),
+        child: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: Colors.indigoAccent,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFolderList() {
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+            (context, index) {
+          final folder = folderData[index];
+          final folderName = folder.path.split(Platform.pathSeparator).last;
+          return ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.folder)),
+            title: Text(folderName, maxLines: 1, overflow: TextOverflow.ellipsis),
+            onTap: () => loadAllContentOfPath(folder.path),
+          );
+        },
+        childCount: folderData.length,
+      ),
+    );
+  }
+
+  Widget _buildFileList() {
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+            (context, index) {
+          final file = fileData[index];
+          final fileName = file.path.split(Platform.pathSeparator).last;
+          return ListTile(
+            leading: const Icon(Icons.insert_drive_file, color: Colors.blueGrey),
+            title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => const AlertDialog(
+                  title: Text("Invalid operation"),
+                  content: Text("You are in selection mode."),
+                ),
+              );
+            },
+          );
+        },
+        childCount: fileData.length,
+      ),
+    );
+  }
+
+  Widget _buildPasteButton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 14, 24, 8),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+          onPressed: _handlePasteOperation,
+          child: const Text("Paste Here", style: TextStyle(fontSize: 18, color: Colors.white)),
+        ),
+      ),
     );
   }
 }

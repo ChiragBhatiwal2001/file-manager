@@ -1,17 +1,14 @@
-import 'package:file_manager/Screens/search_screen.dart';
 import 'package:file_manager/Services/file_operations.dart';
-import 'package:file_manager/Services/thumbnail_service.dart';
-import 'package:file_manager/Utils/MediaUtils.dart';
 import 'package:file_manager/Utils/constant.dart';
-import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/bottom_sheet_single_file_operations.dart';
+import 'package:file_manager/Widgets/Recent_Added_Files/recent_added_tile.dart';
 import 'package:file_manager/Widgets/bottom_sheet_paste_operation.dart';
+import 'package:file_manager/Widgets/search_bottom_sheet.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:file_manager/Providers/selction_notifier.dart';
 import 'package:file_manager/Services/media_scanner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:open_filex/open_filex.dart';
 
 class RecentAddedContentWidget extends ConsumerStatefulWidget {
   const RecentAddedContentWidget({
@@ -35,6 +32,7 @@ class _RecentAddedContentWidgetState
     extends ConsumerState<RecentAddedContentWidget> {
   List<MediaFile> data = [];
   bool _isLoading = false;
+  bool isGrid = false;
 
   @override
   void initState() {
@@ -42,7 +40,7 @@ class _RecentAddedContentWidgetState
     _refreshData();
   }
 
-  Future<void> _refreshData() async {
+  Future<void> _refreshData([String? list]) async {
     setState(() {
       _isLoading = true;
     });
@@ -188,92 +186,45 @@ class _RecentAddedContentWidgetState
                         useSafeArea: true,
                         isScrollControlled: true,
                         builder: (context) =>
-                            SearchScreen(Constant.internalPath),
+                            SearchBottomSheet(Constant.internalPath!),
                       );
                     },
                     icon: Icon(Icons.search),
                   ),
+                  IconButton(
+                    icon: Icon(isGrid ? Icons.list : Icons.grid_view),
+                    onPressed: () => setState(() => isGrid = !isGrid),
+                  ),
                 ],
         ),
         body: _isLoading
-            ? Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator())
+            : isGrid
+            ? GridView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: data.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.85,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16
+                ),
+                itemBuilder: (context, index) => RecentAddedTile(
+                  file: data[index],
+                  isGrid: true,
+                  onRefresh: _refreshData,
+                  onOperationDone: widget.onOperationDone,
+                ),
+              )
             : ListView.separated(
                 itemCount: data.length,
-                itemBuilder: (context, index) {
-                  final file = data[index];
-                  final fileName = file.path.split("/").last;
-                  return ListTile(
-                    leading: FutureBuilder<Uint8List?>(
-                      future: ThumbnailService.getSmartThumbnail(file.path),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.done &&
-                            snapshot.hasData &&
-                            snapshot.data != null) {
-                          return ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.memory(
-                              snapshot.data!,
-                              width: 40,
-                              height: 40,
-                              fit: BoxFit.cover,
-                            ),
-                          );
-                        } else {
-                          return CircleAvatar(
-                            child: Icon(MediaUtils.getIconForMedia(file.type)),
-                          );
-                        }
-                      },
-                    ),
-                    title: Text(fileName),
-                    trailing: Consumer(
-                      builder: (context, ref, _) {
-                        final selectionState = ref.watch(selectionProvider);
-                        final selectionNotifier = ref.read(
-                          selectionProvider.notifier,
-                        );
-                        return selectionState.isSelectionMode
-                            ? Checkbox(
-                                value: selectionState.selectedPaths.contains(
-                                  file.path,
-                                ),
-                                onChanged: (_) => selectionNotifier
-                                    .toggleSelection(file.path),
-                              )
-                            : IconButton(
-                                onPressed: () {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) =>
-                                        BottomSheetForSingleFileOperation(
-                                          path: file.path,
-                                          loadAgain: AsyncValue.data,
-                                        ),
-                                  ).then((_) {
-                                    _refreshData();
-                                    widget.onOperationDone?.call();
-                                  });
-                                },
-                                icon: const Icon(Icons.more_vert),
-                              );
-                      },
-                    ),
-                    onTap: () {
-                      final isSelectionMode = selectionState.isSelectionMode;
-                      if (isSelectionMode) {
-                        selectionNotifier.toggleSelection(file.path);
-                      } else {
-                        OpenFilex.open(file.path);
-                      }
-                    },
-                    onLongPress: () {
-                      selectionNotifier.toggleSelection(file.path);
-                    },
-                  );
-                },
-                separatorBuilder: (BuildContext context, int index) {
-                  return Divider();
-                },
+                itemBuilder: (context, index) => RecentAddedTile(
+                  file: data[index],
+                  onRefresh: _refreshData,
+                  isGrid: false,
+                  onOperationDone: widget.onOperationDone,
+                ),
+                separatorBuilder: (_, __) => const Divider(),
               ),
       ),
     );

@@ -1,47 +1,45 @@
-// recently_deleted_manager.dart
-
 import 'dart:convert';
 import 'dart:io';
+import 'package:file_manager/Utils/constant.dart';
 import 'package:path/path.dart' as p;
 
-/// A singleton class that manages recently deleted files and folders.
-/// It moves them to a hidden trash directory, tracks their metadata,
-/// supports restore functionality, and automatically deletes items after 30 days.
 class RecentlyDeletedManager {
   static final RecentlyDeletedManager _instance = RecentlyDeletedManager._internal();
   factory RecentlyDeletedManager() => _instance;
   RecentlyDeletedManager._internal();
 
-  // Directory used to store trashed items.
-  final Directory trashDir = Directory("/storage/emulated/0/.file_manager_trash");
-  // JSON file that tracks metadata of deleted items.
-  final File metadataFile = File("/storage/emulated/0/.file_manager_trash/trash_index.json");
+  Directory get trashDir {
+    final path = Constant.internalPath;
+    if (path == null) throw Exception("Constant.internalPath is not set!");
+    return Directory("$path/.file_manager_trash");
+  }
 
-  /// Initializes the trash directory and metadata file if they don't exist.
+  File get metadataFile {
+    final path = Constant.internalPath;
+    if (path == null) throw Exception("Constant.internalPath is not set!");
+    return File("$path/.file_manager_trash/trash_index.json");
+  }
+
   Future<void> init() async {
     if (!trashDir.existsSync()) trashDir.createSync(recursive: true);
     if (!metadataFile.existsSync()) metadataFile.writeAsStringSync(jsonEncode([]));
   }
-
-  /// Reads the metadata from the index file.
   Future<List<Map<String, dynamic>>> _readMetadata() async {
     final contents = await metadataFile.readAsString();
     return List<Map<String, dynamic>>.from(jsonDecode(contents));
   }
 
-  /// Writes the given metadata to the index file.
   Future<void> _writeMetadata(List<Map<String, dynamic>> data) async {
     await metadataFile.writeAsString(jsonEncode(data));
   }
 
-  /// Moves a file/folder to the trash and records its metadata.
   Future<void> deleteToTrash(String originalPath) async {
     final entity = FileSystemEntity.typeSync(originalPath) == FileSystemEntityType.directory
         ? Directory(originalPath)
         : File(originalPath);
 
     if (!entity.existsSync()) return;
-
+    print(trashDir.path.toString());
     final fileName = p.basename(originalPath);
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final trashedPath = p.join(trashDir.path, "${timestamp}_$fileName");
@@ -57,7 +55,6 @@ class RecentlyDeletedManager {
     await _writeMetadata(metadata);
   }
 
-  /// Restores a file/folder from the trash using its saved metadata.
   Future<void> restoreFromTrash(String trashedPath) async {
     final metadata = await _readMetadata();
     final index = metadata.indexWhere((e) => e['trashedPath'] == trashedPath);
@@ -68,13 +65,11 @@ class RecentlyDeletedManager {
     final file = FileSystemEntity.typeSync(trashedPath) == FileSystemEntityType.directory
         ? Directory(trashedPath)
         : File(trashedPath);
-
     await file.rename(entry['originalPath']);
     metadata.removeAt(index);
     await _writeMetadata(metadata);
   }
 
-  /// Permanently deletes a trashed file/folder and removes its metadata.
   Future<void> permanentlyDelete(String trashedPath) async {
     final metadata = await _readMetadata();
     final index = metadata.indexWhere((e) => e['trashedPath'] == trashedPath);
@@ -89,7 +84,6 @@ class RecentlyDeletedManager {
     await _writeMetadata(metadata);
   }
 
-  /// Automatically deletes files/folders from trash if they are older than 30 days.
   Future<void> autoCleanTrash() async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final threshold = 30 * 24 * 60 * 60 * 1000; // 30 days in ms
@@ -107,9 +101,6 @@ class RecentlyDeletedManager {
 
     await _writeMetadata(metadata);
   }
-
-  /// Permanently deletes **all** items currently in the trash folder
-  /// and clears the metadata index file.
   Future<void> deleteAll() async {
     final metadata = await _readMetadata();
 
@@ -130,7 +121,6 @@ class RecentlyDeletedManager {
     await _writeMetadata([]);
   }
 
-  /// Returns a list of all items currently in the trash.
   Future<List<Map<String, dynamic>>> getDeletedItems() async {
     return await _readMetadata();
   }

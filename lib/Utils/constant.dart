@@ -1,3 +1,3 @@
 class Constant{
-  static String internalPath = '';
+  static String? internalPath;
 }

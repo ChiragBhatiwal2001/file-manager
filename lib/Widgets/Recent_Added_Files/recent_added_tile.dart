@@ -1,58 +1,62 @@
-import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/bottom_sheet_single_file_operations.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:file_manager/Services/media_scanner.dart';
+import 'dart:ui';
 import 'package:file_manager/Utils/MediaUtils.dart';
-import 'package:file_manager/Services/thumbnail_service.dart';
+import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/bottom_sheet_single_file_operations.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_manager/Providers/selction_notifier.dart';
+import 'package:file_manager/Services/media_scanner.dart';
+import 'package:file_manager/Services/thumbnail_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class QuickAccessGridItem extends ConsumerStatefulWidget {
+class RecentAddedTile extends ConsumerStatefulWidget {
   final MediaFile file;
-  final Function(String? path) getDataForDisplay;
+  final void Function([String data]) onRefresh;
+  final VoidCallback? onOperationDone;
+  final bool isGrid;
 
-  const QuickAccessGridItem({
-    super.key,
+  const RecentAddedTile({
     required this.file,
-    required this.getDataForDisplay,
+    required this.onRefresh,
+    required this.onOperationDone,
+    required this.isGrid,
   });
 
   @override
-  ConsumerState<QuickAccessGridItem> createState() =>
-      _QuickAccessGridItemState();
+  ConsumerState<RecentAddedTile> createState() => _RecentAddedTileState();
 }
 
-class _QuickAccessGridItemState extends ConsumerState<QuickAccessGridItem> {
+class _RecentAddedTileState extends ConsumerState<RecentAddedTile> {
   Uint8List? _thumbnail;
-  bool _isLoading = true;
+  bool _isLoadingThumb = true;
 
   @override
   void initState() {
     super.initState();
-    _loadThumbnail();
+    _loadThumb();
   }
 
-  void _loadThumbnail() async {
+  void _loadThumb() async {
     final result = await ThumbnailService.getThumbnail(widget.file.path);
     if (mounted) {
       setState(() {
         _thumbnail = result;
-        _isLoading = false;
+        _isLoadingThumb = false;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final file = widget.file;
+    final fileName = p.basename(file.path);
     final selectionState = ref.watch(selectionProvider);
     final selectionNotifier = ref.read(selectionProvider.notifier);
-    final isSelected = selectionState.selectedPaths.contains(widget.file.path);
+    final isSelected = selectionState.selectedPaths.contains(file.path);
     final isSelectionMode = selectionState.isSelectionMode;
-    final fileName = p.basename(widget.file.path);
 
-    return GestureDetector(
+    return widget.isGrid? GestureDetector(
       onTap: () {
         if (isSelectionMode) {
           selectionNotifier.toggleSelection(widget.file.path);
@@ -75,9 +79,7 @@ class _QuickAccessGridItemState extends ConsumerState<QuickAccessGridItem> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                    : _thumbnail != null
+                child: _thumbnail != null
                     ? ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Image.memory(
@@ -130,7 +132,7 @@ class _QuickAccessGridItemState extends ConsumerState<QuickAccessGridItem> {
                         builder: (context) =>
                             BottomSheetForSingleFileOperation(
                               path: widget.file.path,
-                              loadAgain: widget.getDataForDisplay,
+                              loadAgain: widget.onRefresh,
                             ),
                       );
                     },
@@ -141,6 +143,55 @@ class _QuickAccessGridItemState extends ConsumerState<QuickAccessGridItem> {
           ),
         ),
       ),
+    ) :
+
+      ListTile(
+      leading: _isLoadingThumb
+          ? const CircularProgressIndicator(strokeWidth: 2)
+          : _thumbnail != null
+          ? ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.memory(
+          _thumbnail!,
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+        ),
+      )
+          : CircleAvatar(
+        child: Icon(MediaUtils.getIconForMedia(file.type)),
+      ),
+      title: Text(fileName),
+      trailing: isSelectionMode
+          ? Checkbox(
+        value: isSelected,
+        onChanged: (_) => selectionNotifier.toggleSelection(file.path),
+      )
+          : IconButton(
+        icon: const Icon(Icons.more_vert),
+        onPressed: () {
+          showModalBottomSheet(
+            context: context,
+            builder: (context) => BottomSheetForSingleFileOperation(
+              path: file.path,
+              loadAgain: AsyncValue.data,
+            ),
+          ).then((_) {
+              widget.onRefresh();
+              widget.onOperationDone?.call();
+          });
+        },
+      ),
+      onTap: () {
+        if (isSelectionMode) {
+          selectionNotifier.toggleSelection(file.path);
+        } else {
+          OpenFilex.open(file.path);
+        }
+      },
+      onLongPress: () {
+        selectionNotifier.toggleSelection(file.path);
+      },
     );
   }
 }

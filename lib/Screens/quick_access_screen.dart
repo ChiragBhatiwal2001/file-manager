@@ -1,24 +1,21 @@
 import 'dart:io';
 import 'package:file_manager/Providers/selction_notifier.dart';
-import 'package:file_manager/Screens/search_screen.dart';
 import 'package:file_manager/Services/file_operations.dart';
 import 'package:file_manager/Services/media_scanner.dart';
 import 'package:file_manager/Services/shared_preference.dart';
 import 'package:file_manager/Services/sorting_operation.dart';
-import 'package:file_manager/Services/thumbnail_service.dart';
 import 'package:file_manager/Utils/MediaUtils.dart';
 import 'package:file_manager/Utils/constant.dart';
-import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/bottom_sheet_single_file_operations.dart';
 import 'package:file_manager/Widgets/Quick_Access/quick_access_app_bar_widget.dart';
 import 'package:file_manager/Widgets/Quick_Access/quick_access_file_grid_widget.dart';
 import 'package:file_manager/Widgets/Quick_Access/quick_access_file_list_widget.dart';
 import 'package:file_manager/Widgets/bottom_sheet_paste_operation.dart';
+import 'package:file_manager/Widgets/search_bottom_sheet.dart';
 import 'package:file_manager/Widgets/setting_popup_menu_widget.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:open_filex/open_filex.dart';
 
 class QuickAccessScreen extends ConsumerStatefulWidget {
   const QuickAccessScreen({
@@ -207,7 +204,7 @@ class _QuickAccessScreenState extends ConsumerState<QuickAccessScreen> {
                         useSafeArea: true,
                         isScrollControlled: true,
                         builder: (context) =>
-                            SearchScreen(Constant.internalPath),
+                            SearchBottomSheet(Constant.internalPath!),
                       );
                     },
                     icon: Icon(Icons.search),

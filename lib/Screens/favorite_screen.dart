@@ -32,62 +32,62 @@ class FavoriteScreen extends ConsumerWidget {
       ),
       body: favorites.isNotEmpty
           ? ReorderableListView.builder(
-        itemCount: favorites.length,
-        onReorder: (oldIndex, newIndex) async {
-          await ref
-              .read(favoritesProvider.notifier)
-              .reorderFavorites(oldIndex, newIndex);
-        },
-        itemBuilder: (context, index) {
-          final path = favorites[index];
-          final name = path.split("/").last;
-          final isDir = FileSystemEntity.isDirectorySync(path);
-          return ListTile(
-            key: ValueKey(path),
-            title: Text(name),
-            subtitle: Text(path, maxLines: 2),
-            leading: Icon(isDir ? Icons.folder : Icons.insert_drive_file),
-            onTap: () {
-              if (isDir) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        FileExplorerScreen(initialPath: path),
-                  ),
-                );
-              } else {
-                OpenFilex.open(path);
-              }
-            },
-            trailing: IconButton(
-              icon: Icon(Icons.favorite, color: Colors.red),
-              onPressed: () async {
+              itemCount: favorites.length,
+              onReorder: (oldIndex, newIndex) async {
                 await ref
                     .read(favoritesProvider.notifier)
-                    .toggleFavorite(path, isDir);
+                    .reorderFavorites(oldIndex, newIndex);
               },
-            ),
-          );
-        },
-      )
+              itemBuilder: (context, index) {
+                final path = favorites[index];
+                final name = path.split("/").last;
+                final isDir = FileSystemEntity.isDirectorySync(path);
+                return ListTile(
+                  key: ValueKey(path),
+                  title: Text(name),
+                  subtitle: Text(path, maxLines: 2),
+                  leading: Icon(isDir ? Icons.folder : Icons.insert_drive_file),
+                  onTap: () {
+                    if (isDir) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              FileExplorerScreen(initialPath: path),
+                        ),
+                      );
+                    } else {
+                      OpenFilex.open(path);
+                    }
+                  },
+                  trailing: IconButton(
+                    icon: Icon(Icons.favorite, color: Colors.red),
+                    onPressed: () async {
+                      await ref
+                          .read(favoritesProvider.notifier)
+                          .toggleFavorite(path, isDir);
+                    },
+                  ),
+                );
+              },
+            )
           : Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.favorite_border, size: 100),
-          const SizedBox(height: 20),
-          Text(
-            'No Favorites Yet',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Mark files or folders as favorite to see them here.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16),
-          ),
-        ],
-      ),
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.favorite_border, size: 100),
+                const SizedBox(height: 20),
+                Text(
+                  'No Favorites Yet',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Mark files or folders as favorite to see them here.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16),
+                ),
+              ],
+            ),
     );
   }
 }

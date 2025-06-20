@@ -1,4 +1,3 @@
-import 'package:file_manager/Widgets/Quick_Access/quick_access_file_grid_widget.dart';
 import 'package:file_manager/Widgets/Quick_Access/quick_access_list_item_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:file_manager/Services/media_scanner.dart';

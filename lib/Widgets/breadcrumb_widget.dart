@@ -38,7 +38,7 @@ class _BreadcrumbWidget extends State<BreadcrumbWidget> {
     breadcrumbNames = [];
 
     String path = widget.path;
-    String root = Constant.internalPath;
+    String root = Constant.internalPath!;
 
     // Normalize both root and path
     path = path.replaceAll(RegExp(r'/+'), '/').trim();
@@ -48,12 +48,12 @@ class _BreadcrumbWidget extends State<BreadcrumbWidget> {
     if (!path.endsWith('/')) path = '$path/';
 
     if (path.startsWith(root)) {
-      breadcrumbList.add(Constant.internalPath);
+      breadcrumbList.add(Constant.internalPath!);
       breadcrumbNames.add('All Files');
 
       String subPath = path.substring(root.length);
       List<String> parts = subPath.split('/')..removeWhere((e) => e.isEmpty);
-      String current = Constant.internalPath;
+      String current = Constant.internalPath!;
 
       for (var part in parts) {
         current = '$current/$part';

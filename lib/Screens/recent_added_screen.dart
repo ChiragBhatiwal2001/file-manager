@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'package:file_manager/Utils/MediaUtils.dart';
 import 'package:file_manager/Services/media_scanner.dart';
-import 'package:file_manager/Widgets/recent_added_content_widget.dart';
+import 'package:file_manager/Widgets/Recent_Added_Files/recent_added_content_widget.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class RecentAddedScreen extends StatefulWidget {
@@ -21,26 +22,41 @@ class _RecentAddedScreenState extends State<RecentAddedScreen> {
     _getAllCategory();
   }
 
-  void _getAllCategory() async {
-    setState(() {
-      _isLoading = true;
-    });
+  static Map<MediaType, List<MediaFile>> _filterRecentMedia(
+      Map<MediaType, List<MediaFile>> categorized,
+      ) {
     final now = DateTime.now();
-    final sevenDaysAgo = now.subtract(Duration(days: 7));
+    final fifteenDaysAgo = now.subtract(const Duration(days: 15));
+    final result = <MediaType, List<MediaFile>>{};
 
-    final categorized = await MediaScanner.scanAllMedia();
-    setState(() {
-      categorizedRecent.clear();
-      for (var type in categorized.keys) {
-        final filtered = categorized[type]!.where((file) {
-          final modified = File(file.path).lastModifiedSync();
-          return modified.isAfter(sevenDaysAgo);
-        }).toList();
-
-        if (filtered.isNotEmpty) {
-          categorizedRecent[type] = filtered;
+    for (final entry in categorized.entries) {
+      final recentFiles = entry.value.where((file) {
+        try {
+          final f = File(file.path);
+          if (!f.existsSync()) return false;
+          final modified = f.lastModifiedSync();
+          return modified.isAfter(fifteenDaysAgo);
+        } catch (_) {
+          return false;
         }
+      }).toList();
+
+      if (recentFiles.isNotEmpty) {
+        result[entry.key] = recentFiles;
       }
+    }
+
+    return result;
+  }
+
+  void _getAllCategory() async {
+    setState(() => _isLoading = true);
+    final categorized = await MediaScanner.scanAllMedia();
+
+    final filtered = await compute(_filterRecentMedia, categorized);
+
+    setState(() {
+      categorizedRecent = filtered;
       _isLoading = false;
     });
   }
@@ -57,62 +73,55 @@ class _RecentAddedScreenState extends State<RecentAddedScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          "Recently Added",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: const Text("Recently Added", style: TextStyle(fontWeight: FontWeight.bold)),
         titleSpacing: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : categorizedRecent.isNotEmpty
           ? GridView.builder(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-              ),
-              itemCount: categorizedRecent.length,
-              itemBuilder: (context, index) {
-                final category = categorizedRecent.keys.elementAt(index);
-                final files = categorizedRecent[category]!;
-                return GestureDetector(
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => RecentAddedContentWidget(
-                          categoryName: category.name,
-                          categoryList: files,
-                          onOperationDone: _getAllCategory,
-                        ),
-                      ),
-                    );
-                    setState(() {});
-                  },
-                  child: Card(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(mediaTypes[category], size: 40),
-                        SizedBox(height: 10),
-                        Text(category.name.toUpperCase()),
-                      ],
-                    ),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3),
+        itemCount: categorizedRecent.length,
+        itemBuilder: (context, index) {
+          final category = categorizedRecent.keys.elementAt(index);
+          final files = categorizedRecent[category]!;
+          return GestureDetector(
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => RecentAddedContentWidget(
+                    categoryName: category.name,
+                    categoryList: files,
+                    onOperationDone: _getAllCategory,
                   ),
-                );
-              },
-            )
-          : Center(
-              child: Text(
-                "No Recent Files Found",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              );
+              setState(() {});
+            },
+            child: Card(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(mediaTypes[category], size: 40),
+                  const SizedBox(height: 10),
+                  Text(category.name.toUpperCase()),
+                ],
               ),
             ),
+          );
+        },
+      )
+          : const Center(
+        child: Text(
+          "No Recent Files Found",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+      ),
     );
   }
 }
