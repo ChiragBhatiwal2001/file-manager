@@ -11,7 +11,6 @@ class SortingOperation {
     required this.fileData,
   });
 
-  // Add these helper functions inside SortingOperation
   int safeLength(File f) {
     try {
       return f.lengthSync();
@@ -28,7 +27,7 @@ class SortingOperation {
     }
   }
 
-// Update your sortFileAndFolder method:
+  // Update your sortFileAndFolder method:
   void sortFileAndFolder() {
     final parts = filterItem.split('-');
     final sortBy = parts[0];
@@ -69,6 +68,14 @@ class SortingOperation {
           return sortOrder == 'asc'
               ? aTime.compareTo(bTime)
               : bTime.compareTo(aTime);
+        });
+        break;
+
+      case "type":
+        fileData.sort((a, b) {
+          final aExt = a.path.split('.').last.toLowerCase();
+          final bExt = b.path.split('.').last.toLowerCase();
+          return compare(aExt, bExt);
         });
         break;
     }
