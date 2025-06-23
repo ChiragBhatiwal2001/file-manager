@@ -1,10 +1,9 @@
-import 'package:file_manager/Providers/view_toggle_notifier.dart';
-import 'package:file_manager/Services/shared_preference.dart';
+import 'package:file_manager/Providers/hide_file_folder_notifier.dart';
+import 'package:file_manager/Services/get_meta_data.dart';
 import 'package:file_manager/Utils/MediaUtils.dart';
 import 'package:flutter/foundation.dart';
 import 'package:file_manager/Providers/file_explorer_state_model.dart';
 import 'package:file_manager/Services/thumbnail_service.dart';
-import 'package:intl/intl.dart';
 import 'package:file_manager/Providers/file_explorer_notifier.dart';
 import 'package:file_manager/Providers/selction_notifier.dart';
 import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/bottom_sheet_single_file_operations.dart';
@@ -27,29 +26,35 @@ class FileExplorerBody extends ConsumerStatefulWidget {
 class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
   @override
   Widget build(BuildContext context) {
-    final viewMode = ref.watch(fileViewModeProvider);
     final currentState = ref.watch(widget.providerInstance);
+
     final notifier = ref.read(widget.providerInstance.notifier);
-    final lastModifiedMap = currentState.lastModifiedMap;
-    return currentState.folders.isEmpty && currentState.files.isEmpty
+
+    final hiddenState = ref.watch(hiddenPathsProvider);
+    final showHidden = hiddenState.showHidden;
+    final hiddenPaths = hiddenState.hiddenPaths;
+
+    final visibleFolders = currentState.folders.where((entity) {
+      return showHidden || !hiddenPaths.contains(entity.path);
+    }).toList();
+
+    final visibleFiles = currentState.files.where((entity) {
+      return showHidden || !hiddenPaths.contains(entity.path);
+    }).toList();
+
+    return visibleFolders.isEmpty && visibleFiles.isEmpty
         ? const ScreenEmptyWidget()
         : ListView.builder(
-            key: const PageStorageKey('fileExplorerListView'),
             itemCount:
-                (currentState.folders.isNotEmpty
-                    ? currentState.folders.length + 1
-                    : 0) +
-                (currentState.files.isNotEmpty
-                    ? currentState.files.length + 1
-                    : 0),
+                (visibleFolders.isNotEmpty ? visibleFolders.length + 1 : 0) +
+                (visibleFiles.isNotEmpty ? visibleFiles.length + 1 : 0),
             itemBuilder: (context, index) {
               final folderHeaderIndex = 0;
-              final fileHeaderIndex = currentState.folders.isNotEmpty
-                  ? currentState.folders.length + 1
+              final fileHeaderIndex = visibleFolders.isNotEmpty
+                  ? visibleFolders.length + 1
                   : 0;
 
-              if (index == folderHeaderIndex &&
-                  currentState.folders.isNotEmpty) {
+              if (index == folderHeaderIndex && visibleFolders.isNotEmpty) {
                 return const Padding(
                   padding: EdgeInsets.only(left: 12.0, top: 8, bottom: 0),
                   child: Text(
@@ -62,22 +67,36 @@ class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
                   ),
                 );
               } else if (index > folderHeaderIndex && index < fileHeaderIndex) {
-                final folderPath = currentState.folders[index - 1].path;
+                final folderPath = visibleFolders[index - 1].path;
                 final folderName = p.basename(folderPath);
-                final lastModifiedDate = lastModifiedMap?[folderPath];
+                final isHidden = hiddenPaths.contains(folderPath);
+
                 return ListTile(
                   key: ValueKey(folderPath),
                   title: Text(
                     folderName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: isHidden ? Colors.blueGrey : null),
                   ),
-                  leading: const CircleAvatar(child: Icon(Icons.folder)),
-                  subtitle: Text(
-                    lastModifiedDate != null
-                        ? DateFormat('dd MMM yyyy').format(lastModifiedDate)
-                        : 'Last Modified: Unknown',
+                  subtitle: FutureBuilder<Map<String, dynamic>>(
+                    future: getMetadata(folderPath), // or folderPath
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const Text("Loading...");
+                      final data = snapshot.data!;
+                      return Text(
+                        "${data['Size']} | ${data['Modified']}",
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      );
+                    },
                   ),
+                  leading: CircleAvatar(
+                    child: Icon(
+                      Icons.folder,
+                      color: isHidden ? Colors.grey : null,
+                    ),
+                  ),
+
                   trailing: Consumer(
                     builder: (context, ref, _) {
                       final selectionState = ref.watch(selectionProvider);
@@ -125,8 +144,7 @@ class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
                         .toggleSelection(folderPath);
                   },
                 );
-              } else if (index == fileHeaderIndex &&
-                  currentState.files.isNotEmpty) {
+              } else if (index == fileHeaderIndex && visibleFiles.isNotEmpty) {
                 return const Padding(
                   padding: EdgeInsets.only(left: 12.0, top: 8, bottom: 0),
                   child: Text(
@@ -139,19 +157,29 @@ class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
                   ),
                 );
               } else {
-                final filePath =
-                    currentState.files[index - fileHeaderIndex - 1].path;
+                final filePath = visibleFiles[index - fileHeaderIndex - 1].path;
                 final fileName = p.basename(filePath);
                 final iconData = MediaUtils.getIconForMedia(
                   MediaUtils.getMediaTypeFromExtension(filePath),
                 );
-                final lastModifiedDate = lastModifiedMap?[filePath];
+
                 return ListTile(
                   key: ValueKey(filePath),
                   title: Text(
                     fileName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: FutureBuilder<Map<String, dynamic>>(
+                    future: getMetadata(filePath), // or folderPath
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const Text("Loading...");
+                      final data = snapshot.data!;
+                      return Text(
+                        "${data['Size']} | ${data['Modified']}",
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      );
+                    },
                   ),
                   leading: FutureBuilder<Uint8List?>(
                     future: ThumbnailService.getThumbnail(filePath),
@@ -202,11 +230,6 @@ class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
                               icon: const Icon(Icons.more_vert),
                             );
                     },
-                  ),
-                  subtitle: Text(
-                    lastModifiedDate != null
-                        ? DateFormat('dd MMM yyyy').format(lastModifiedDate)
-                        : 'Last Modified: Unknown',
                   ),
                   onTap: () {
                     final isSelectionMode = ref

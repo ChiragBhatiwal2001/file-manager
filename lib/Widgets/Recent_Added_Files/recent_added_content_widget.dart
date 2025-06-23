@@ -1,8 +1,10 @@
+import 'package:file_manager/Providers/limit_setting_provider.dart';
+import 'package:file_manager/Providers/view_toggle_notifier.dart';
 import 'package:file_manager/Services/file_operations.dart';
 import 'package:file_manager/Utils/constant.dart';
+import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/bottom_sheet_paste_operation.dart';
 import 'package:file_manager/Widgets/Recent_Added_Files/recent_added_tile.dart';
-import 'package:file_manager/Widgets/bottom_sheet_paste_operation.dart';
-import 'package:file_manager/Widgets/search_bottom_sheet.dart';
+import 'package:file_manager/Widgets/Search_Bottom_Sheet/search_bottom_sheet.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:file_manager/Providers/selction_notifier.dart';
@@ -66,6 +68,10 @@ class _RecentAddedContentWidgetState
   Widget build(BuildContext context) {
     final selectionState = ref.watch(selectionProvider);
     final selectionNotifier = ref.read(selectionProvider.notifier);
+    final recentLimit = ref.watch(limitSettingsProvider).recentLimit;
+    final viewMode = ref.watch(fileViewModeProvider);
+    final limitedData = data.take(recentLimit).toList();
+
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
@@ -84,6 +90,21 @@ class _RecentAddedContentWidgetState
             },
             icon: Icon(Icons.arrow_back),
           ),
+          bottom: _isLoading
+              ? null
+              : PreferredSize(
+                  preferredSize: const Size.fromHeight(34.0),
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8.0, bottom: 5.0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "${limitedData.length} items in total",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ),
           titleSpacing: 0,
           title: Text(
             widget.categoryName.toUpperCase(),
@@ -192,36 +213,40 @@ class _RecentAddedContentWidgetState
                     icon: Icon(Icons.search),
                   ),
                   IconButton(
-                    icon: Icon(isGrid ? Icons.list : Icons.grid_view),
-                    onPressed: () => setState(() => isGrid = !isGrid),
+                    icon: Icon(
+                      viewMode == "Grid View" ? Icons.list : Icons.grid_view,
+                    ),
+                    onPressed: () {
+                      ref.read(fileViewModeProvider.notifier).toggleMode();
+                    },
                   ),
                 ],
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : isGrid
+            : viewMode == "Grid View"
             ? GridView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: data.length,
+                itemCount: limitedData.length,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   childAspectRatio: 0.85,
                   crossAxisSpacing: 16,
-                  mainAxisSpacing: 16
+                  mainAxisSpacing: 16,
                 ),
                 itemBuilder: (context, index) => RecentAddedTile(
-                  file: data[index],
+                  file: limitedData[index],
                   isGrid: true,
                   onRefresh: _refreshData,
                   onOperationDone: widget.onOperationDone,
                 ),
               )
             : ListView.separated(
-                itemCount: data.length,
+                itemCount: limitedData.length,
                 itemBuilder: (context, index) => RecentAddedTile(
-                  file: data[index],
-                  onRefresh: _refreshData,
+                  file: limitedData[index],
                   isGrid: false,
+                  onRefresh: _refreshData,
                   onOperationDone: widget.onOperationDone,
                 ),
                 separatorBuilder: (_, __) => const Divider(),

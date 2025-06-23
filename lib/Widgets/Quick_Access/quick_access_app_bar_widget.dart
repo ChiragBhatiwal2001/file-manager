@@ -29,18 +29,18 @@ class QuickAccessAppBar extends StatelessWidget implements PreferredSizeWidget {
       bottom: isLoading || itemCount == 0
           ? null
           : PreferredSize(
-              preferredSize: const Size.fromHeight(34.0),
-              child: Padding(
-                padding: const EdgeInsets.only(left: 8.0, bottom: 5.0),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    "$itemCount items in total",
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
+        preferredSize: const Size.fromHeight(34.0),
+        child: Padding(
+          padding: const EdgeInsets.only(left: 8.0, bottom: 5.0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              "$itemCount items in total",
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
+          ),
+        ),
+      ),
     );
   }
 

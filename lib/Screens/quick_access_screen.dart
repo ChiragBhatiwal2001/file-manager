@@ -1,20 +1,19 @@
 import 'dart:io';
 import 'package:file_manager/Providers/selction_notifier.dart';
-import 'package:file_manager/Services/file_operations.dart';
+import 'package:file_manager/Providers/view_toggle_notifier.dart';
 import 'package:file_manager/Services/media_scanner.dart';
 import 'package:file_manager/Services/shared_preference.dart';
 import 'package:file_manager/Services/sorting_operation.dart';
 import 'package:file_manager/Utils/MediaUtils.dart';
 import 'package:file_manager/Utils/constant.dart';
+import 'package:file_manager/Widgets/Common_Appbar/common_appbar_actions.dart';
 import 'package:file_manager/Widgets/Quick_Access/quick_access_app_bar_widget.dart';
 import 'package:file_manager/Widgets/Quick_Access/quick_access_file_grid_widget.dart';
 import 'package:file_manager/Widgets/Quick_Access/quick_access_file_list_widget.dart';
-import 'package:file_manager/Widgets/bottom_sheet_paste_operation.dart';
-import 'package:file_manager/Widgets/search_bottom_sheet.dart';
+import 'package:file_manager/Widgets/Search_Bottom_Sheet/search_bottom_sheet.dart';
 import 'package:file_manager/Widgets/setting_popup_menu_widget.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class QuickAccessScreen extends ConsumerStatefulWidget {
@@ -95,6 +94,7 @@ class _QuickAccessScreenState extends ConsumerState<QuickAccessScreen> {
   Widget build(BuildContext context) {
     final selectionState = ref.watch(selectionProvider);
     final selectionNotifier = ref.read(selectionProvider.notifier);
+    final fileViewMode = ref.watch(fileViewModeProvider);
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
@@ -111,91 +111,7 @@ class _QuickAccessScreenState extends ConsumerState<QuickAccessScreen> {
           isLoading: _isLoading,
           itemCount: data.length,
           actions: selectionState.isSelectionMode
-              ? [
-                  IconButton(
-                    icon: Icon(Icons.delete),
-                    onPressed: () async {
-                      final names = selectionState.selectedPaths
-                          .map((e) => p.basename(e))
-                          .toList();
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: Text('Do you really want to delete?'),
-                          content: SizedBox(
-                            width: double.maxFinite,
-                            child: ListView(
-                              shrinkWrap: true,
-                              children: names
-                                  .map((name) => Text(name))
-                                  .toList(),
-                            ),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: Text('No'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: Text('Yes'),
-                            ),
-                          ],
-                        ),
-                      );
-
-                      if (confirmed == true) {
-                        for (final path in selectionState.selectedPaths) {
-                          await FileOperations().deleteOperation(path);
-                        }
-                        selectionNotifier.clearSelection();
-                        _getDataForDisplay();
-                      }
-                    },
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.copy),
-                    onPressed: () {
-                      showModalBottomSheet(
-                        context: context,
-                        useSafeArea: true,
-                        isScrollControlled: true,
-                        builder: (context) => BottomSheetForPasteOperation(
-                          selectedPaths: Set<String>.from(
-                            selectionState.selectedPaths,
-                          ),
-                          isCopy: true,
-                        ),
-                      ).then((_) {
-                        selectionNotifier.clearSelection();
-                        _getDataForDisplay();
-                      });
-                    },
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.drive_file_move),
-                    onPressed: () {
-                      showModalBottomSheet(
-                        context: context,
-                        useSafeArea: true,
-                        isScrollControlled: true,
-                        builder: (context) => BottomSheetForPasteOperation(
-                          selectedPaths: Set<String>.from(
-                            selectionState.selectedPaths,
-                          ),
-                          isCopy: false,
-                        ),
-                      ).then((_) {
-                        selectionNotifier.clearSelection();
-                        _getDataForDisplay();
-                      });
-                    },
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close),
-                    onPressed: selectionNotifier.clearSelection,
-                  ),
-                ]
+              ? [SelectionActionsWidget(onPostAction: _getDataForDisplay)]
               : [
                   IconButton(
                     onPressed: () {
@@ -212,20 +128,18 @@ class _QuickAccessScreenState extends ConsumerState<QuickAccessScreen> {
                   SettingPopupMenuWidget(
                     popupList: [
                       "Sorting",
-                      _viewMode == "List View" ? "Grid View" : "List View",
+                      fileViewMode == "List View" ? "Grid View" : "List View",
                     ],
                     currentSortValue: currentSortValue,
                     onSortChanged: onSortChanged,
                     onViewModeChanged: (mode) {
-                      setState(() {
-                        _viewMode = mode;
-                      });
+                      ref.read(fileViewModeProvider.notifier).setMode(mode);
                     },
                   ),
                 ],
           onBack: () => Navigator.pop(context),
         ),
-        body: _viewMode == "List View"
+        body: fileViewMode == "List View"
             ? QuickAccessFileList(
                 data: data,
                 isLoading: _isLoading,

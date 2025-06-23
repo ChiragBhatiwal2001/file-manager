@@ -1,6 +1,7 @@
 import 'package:file_manager/Providers/theme_notifier.dart';
 import 'package:file_manager/Screens/home_screen.dart';
 import 'package:file_manager/Services/shared_preference.dart';
+import 'package:file_manager/Services/sqflite_hide_file_db.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await SharedPrefsService.instance.init();
+  await HiddenFileDb.init();
   runApp(const ProviderScope(child: MyApp()));
 }
 

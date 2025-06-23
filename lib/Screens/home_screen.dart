@@ -3,13 +3,14 @@ import 'package:file_manager/Providers/theme_notifier.dart';
 import 'package:file_manager/Screens/favorite_screen.dart';
 import 'package:file_manager/Screens/file_explorer_screen.dart';
 import 'package:file_manager/Screens/quick_access_screen.dart';
+import 'package:file_manager/Screens/setting_screen.dart';
 import 'package:file_manager/Services/recycler_bin.dart';
 import 'package:file_manager/Utils/MediaUtils.dart';
 import 'package:file_manager/Widgets/Home_Screen/favorites_section.dart';
 import 'package:file_manager/Widgets/Home_Screen/internal_storage_card.dart';
 import 'package:file_manager/Widgets/Home_Screen/quick_access_grid.dart';
 import 'package:file_manager/Widgets/Home_Screen/utility_section.dart';
-import 'package:file_manager/Widgets/search_bottom_sheet.dart';
+import 'package:file_manager/Widgets/Search_Bottom_Sheet/search_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:file_manager/Utils/constant.dart';
 import 'package:external_path/external_path.dart';
@@ -28,12 +29,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void initState() {
     super.initState();
-    RecentlyDeletedManager().init();
     _initStoragePath();
   }
 
   void _initStoragePath() async {
     await getStoragePath();
+    await RecentlyDeletedManager().init();
     if (mounted) setState(() {});
   }
 
@@ -57,7 +58,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> getStoragePath() async {
     final path = await ExternalPath.getExternalStorageDirectories();
-    print(path![0]);
     internalStorage = path![0];
     Constant.internalPath = internalStorage!;
   }
@@ -94,8 +94,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = ref.watch(themeNotifierProvider);
-    final isDark = themeMode == ThemeMode.dark;
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
@@ -105,13 +103,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         elevation: 2,
         actions: [
-          IconButton(
-            icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-            onPressed: () {
-              ref.read(themeNotifierProvider.notifier).toggleTheme();
-            },
-            tooltip: 'Toggle Theme',
-          ),
           IconButton(
             onPressed: () async {
               if (!await _requestAllMediaPermissions()) {
@@ -127,6 +118,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               );
             },
             icon: const Icon(Icons.search),
+          ),
+          IconButton(
+            icon: Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingScreen(),));
+            },
           ),
         ],
       ),

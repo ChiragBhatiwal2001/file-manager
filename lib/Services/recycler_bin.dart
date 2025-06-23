@@ -84,6 +84,29 @@ class RecentlyDeletedManager {
     await _writeMetadata(metadata);
   }
 
+  Future<void> deleteOriginalPath(String path) async {
+    final type = FileSystemEntity.typeSync(path);
+
+    try {
+      if (type == FileSystemEntityType.directory) {
+        final dir = Directory(path);
+        if (dir.existsSync()) {
+          await dir.delete(recursive: true);
+        }
+      } else if (type == FileSystemEntityType.file) {
+        final file = File(path);
+        if (file.existsSync()) {
+          await file.delete();
+        }
+      } else {
+        return;
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+
   Future<void> autoCleanTrash() async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final threshold = 30 * 24 * 60 * 60 * 1000; // 30 days in ms

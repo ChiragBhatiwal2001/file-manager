@@ -1,3 +1,4 @@
+import 'package:file_manager/Services/get_meta_data.dart';
 import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/bottom_sheet_single_file_operations.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -137,6 +138,26 @@ class _QuickAccessGridItemState extends ConsumerState<QuickAccessGridItem> {
                   ),
                 ],
               ),
+              FutureBuilder<Map<String, dynamic>>(
+                future: getMetadata(widget.file.path),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Text("Loading...", style: TextStyle(fontSize: 12));
+                  } else if (snapshot.hasData) {
+                    final size = snapshot.data!['Size'];
+                    final modified = snapshot.data!['Modified'];
+                    return Text(
+                      '$size | $modified',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    );
+                  } else {
+                    return const SizedBox.shrink();
+                  }
+                },
+              )
+
             ],
           ),
         ),

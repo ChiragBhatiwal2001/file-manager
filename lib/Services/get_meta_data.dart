@@ -9,9 +9,9 @@ Future<Map<String, dynamic>> getMetadata(String path) async {
 
   int size = 0;
   if (isFile) {
-    size = File(path).lengthSync();
+    size = await File(path).length();
   } else if (entity == FileSystemEntityType.directory) {
-    size = _getFolderSize(Directory(path));
+    size = await _getFolderSizeAsync(Directory(path));
   }
 
   return {
@@ -20,25 +20,28 @@ Future<Map<String, dynamic>> getMetadata(String path) async {
     'Type': isFile ? p.extension(path) : 'Folder',
     'Size': _formatSize(size),
     'Modified':
-        "${stat.modified.day.toString().padLeft(2, '0')} ${_getMonthName(stat.modified.month)} ${stat.modified.year}",
+    "${stat.modified.day.toString().padLeft(2, '0')} ${_getMonthName(stat.modified.month)} ${stat.modified.year}",
     'Is Hidden': p.basename(path).startsWith('.'),
   };
 }
 
+Future<int> _getFolderSizeAsync(Directory dir) async {
+  int size = 0;
+  try {
+    await for (FileSystemEntity entity
+    in dir.list(recursive: true, followLinks: false)) {
+      if (entity is File) {
+        size += await entity.length();
+      }
+    }
+  } catch (_) {}
+  return size;
+}
+
 String _getMonthName(int month) {
   const months = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
   ];
   return months[month - 1];
 }
@@ -48,16 +51,4 @@ String _formatSize(int bytes) {
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   int i = (bytes != 0) ? (Math.log(bytes) / Math.log(1024)).floor() : 0;
   return '${(bytes / Math.pow(1024, i)).toStringAsFixed(2)} ${sizes[i]}';
-}
-
-int _getFolderSize(Directory dir) {
-  int size = 0;
-  try {
-    dir.listSync(recursive: true, followLinks: false).forEach((entity) {
-      if (entity is File) {
-        size += entity.lengthSync();
-      }
-    });
-  } catch (_) {}
-  return size;
 }

@@ -1,3 +1,4 @@
+import 'package:file_manager/Services/get_meta_data.dart';
 import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/bottom_sheet_single_file_operations.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -71,7 +72,18 @@ class _QuickAccessListItemState extends State<QuickAccessListItem> {
           MediaUtils.getIconForMedia(widget.file.type),
         ),
       ),
-      title: Text(fileName),
+      title: Text(fileName,maxLines: 2,),
+      subtitle: FutureBuilder<Map<String, dynamic>>(
+        future: getMetadata(widget.file.path), // or folderPath
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Text("Loading...");
+          final data = snapshot.data!;
+          return Text(
+            "${data['Size']} | ${data['Modified']}",
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          );
+        },
+      ),
       trailing: widget.selectionState.isSelectionMode
           ? Checkbox(
         value: widget.selectionState.selectedPaths

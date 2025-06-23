@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:file_manager/Services/get_meta_data.dart';
 import 'package:file_manager/Utils/MediaUtils.dart';
 import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/bottom_sheet_single_file_operations.dart';
 import 'package:open_filex/open_filex.dart';
@@ -139,6 +140,25 @@ class _RecentAddedTileState extends ConsumerState<RecentAddedTile> {
                   ),
                 ],
               ),
+              FutureBuilder<Map<String, dynamic>>(
+                future: getMetadata(widget.file.path),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Text("Loading...", style: TextStyle(fontSize: 12));
+                  } else if (snapshot.hasData) {
+                    final size = snapshot.data!['Size'];
+                    final modified = snapshot.data!['Modified'];
+                    return Text(
+                      '$size | $modified',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    );
+                  } else {
+                    return const SizedBox.shrink();
+                  }
+                },
+              )
             ],
           ),
         ),
@@ -162,6 +182,17 @@ class _RecentAddedTileState extends ConsumerState<RecentAddedTile> {
         child: Icon(MediaUtils.getIconForMedia(file.type)),
       ),
       title: Text(fileName),
+        subtitle: FutureBuilder<Map<String, dynamic>>(
+          future: getMetadata(widget.file.path), // or folderPath
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return const Text("Loading...");
+            final data = snapshot.data!;
+            return Text(
+              "${data['Size']} | ${data['Modified']}",
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            );
+          },
+        ),
       trailing: isSelectionMode
           ? Checkbox(
         value: isSelected,

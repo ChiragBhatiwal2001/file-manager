@@ -53,6 +53,12 @@ class _SortDialogState extends State<SortDialog> {
             groupValue: _sortBy,
             onChanged: (val) => setState(() => _sortBy = val as String),
           ),
+          RadioListTile(
+            title: const Text("Type"),
+            value: "type",
+            groupValue: _sortBy,
+            onChanged: (val) => setState(() => _sortBy = val as String),
+          ),
           if (widget.showPathSpecificOption)
             SwitchListTile(
               title: const Text("only this folder"),

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:file_manager/Providers/limit_setting_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_manager/Providers/favorite_notifier.dart';
@@ -8,7 +9,7 @@ import 'package:open_filex/open_filex.dart';
 class FavoritesSection extends ConsumerWidget {
   final Future<bool> Function() requestPermissions;
   final Future<void> Function() getStoragePath;
-  final Future<void> Function() onShowMore; // <-- Fixed type
+  final Future<void> Function() onShowMore;
 
   const FavoritesSection({
     super.key,
@@ -20,14 +21,13 @@ class FavoritesSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final favorites = ref.watch(favoritesProvider);
-    final topFavorites = favorites.take(4).toList();
+    final limitProvider = ref.watch(limitSettingsProvider).favoriteLimit;
+    final topFavorites = favorites.take(limitProvider).toList();
     final theme = Theme.of(context);
 
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10.0),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
@@ -48,23 +48,23 @@ class FavoritesSection extends ConsumerWidget {
                 child: Center(child: Text("No favorites yet.")),
               )
             else
-              Row(
-                children: List.generate(4, (index) {
-                  if (index >= topFavorites.length) {
-                    return const Expanded(child: SizedBox());
-                  }
-                  final path = topFavorites[index];
-                  final name = path.split("/").last;
-                  final isDir = FileSystemEntity.isDirectorySync(path);
-                  return Expanded(
-                    child: GestureDetector(
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: topFavorites.map((path) {
+                    final name = path.split("/").last;
+                    final isDir = FileSystemEntity.isDirectorySync(path);
+
+                    return GestureDetector(
                       onTap: () async {
                         final isGranted = await requestPermissions();
                         if (!isGranted) {
                           ScaffoldMessenger.of(context).clearSnackBars();
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Please grant all permissions to continue.'),
+                              content: Text(
+                                'Please grant all permissions to continue.',
+                              ),
                               duration: Duration(seconds: 2),
                             ),
                           );
@@ -75,46 +75,51 @@ class FavoritesSection extends ConsumerWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => FileExplorerScreen(
-                                initialPath: path,
-                              ),
+                              builder: (context) =>
+                                  FileExplorerScreen(initialPath: path),
                             ),
                           );
                         } else {
                           OpenFilex.open(path);
                         }
                       },
-                      child: Card(
-                        elevation: 1,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 6,
+                      child: Container(
+                        width: 100,
+                        margin: const EdgeInsets.only(right: 10),
+                        child: Card(
+                          elevation: 1,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.0),
                           ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                isDir ? Icons.folder : Icons.insert_drive_file,
-                                size: 28,
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ],
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 6,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isDir
+                                      ? Icons.folder
+                                      : Icons.insert_drive_file,
+                                  size: 28,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                }),
+                    );
+                  }).toList(),
+                ),
               ),
             const SizedBox(height: 10),
             SizedBox(

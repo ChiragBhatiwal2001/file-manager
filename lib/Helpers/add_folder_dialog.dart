@@ -46,7 +46,7 @@ Future<void> addFolderDialog({
                   ),
                 );
               } else {
-                await Directory(newPath).create(recursive: true);
+                await Directory(newPath).create(recursive: false);
                 if (context.mounted) Navigator.pop(context);
                 onSuccess();
               }

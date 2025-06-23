@@ -3,6 +3,7 @@ import 'package:file_manager/Screens/file_explorer_screen.dart';
 import 'package:file_manager/Providers/favorite_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 import 'package:open_filex/open_filex.dart';
 
 class FavoriteScreen extends ConsumerWidget {
@@ -24,7 +25,30 @@ class FavoriteScreen extends ConsumerWidget {
           if (favorites.isNotEmpty)
             TextButton(
               onPressed: () async {
-                await ref.read(favoritesProvider.notifier).clearFavorites();
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text("Are you Sure ?"),
+                    content: Text("Removed All Content from Favorites."),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        child: Text("No"),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          await ref
+                              .read(favoritesProvider.notifier)
+                              .clearFavorites();
+                          Navigator.pop(context);
+                        },
+                        child: Text("Yes"),
+                      ),
+                    ],
+                  ),
+                );
               },
               child: Text("Clear All"),
             ),
@@ -66,6 +90,15 @@ class FavoriteScreen extends ConsumerWidget {
                       await ref
                           .read(favoritesProvider.notifier)
                           .toggleFavorite(path, isDir);
+                      if (context.mounted) {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text("Removed from Favorites"),
+                            content: Text("${p.basename(path)} removed"),
+                          ),
+                        );
+                      }
                     },
                   ),
                 );

@@ -133,4 +133,18 @@ class FileOperations {
     }
     onProgress?.call(1.0);
   }
+
+  Future<void> deleteMultiplePermanently(
+      List<String> paths, {
+        void Function(double progress)? onProgress,
+      }) async {
+    final total = paths.length;
+    int deleted = 0;
+    for (final path in paths) {
+      await RecentlyDeletedManager().deleteOriginalPath(path);
+      deleted++;
+      onProgress?.call(deleted / total);
+    }
+    onProgress?.call(1.0);
+  }
 }

@@ -1,4 +1,3 @@
-// lib/Providers/file_explorer_state_model.dart
 import 'dart:io';
 
 class FileExplorerState {
@@ -24,7 +23,7 @@ class FileExplorerState {
     List<FileSystemEntity>? files,
     bool? isLoading,
     String? sortValue,
-    Map<String, DateTime?>? lastModifiedMap, // <-- Add this
+    Map<String, DateTime?>? lastModifiedMap,
   }) {
     return FileExplorerState(
       currentPath: currentPath ?? this.currentPath,
@@ -32,7 +31,7 @@ class FileExplorerState {
       files: files ?? this.files,
       isLoading: isLoading ?? this.isLoading,
       sortValue: sortValue ?? this.sortValue,
-      lastModifiedMap: lastModifiedMap ?? this.lastModifiedMap, // <-- Add this
+      lastModifiedMap: lastModifiedMap ?? this.lastModifiedMap,
     );
   }
 }
