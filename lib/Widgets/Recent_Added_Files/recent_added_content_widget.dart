@@ -72,14 +72,11 @@ class _RecentAddedContentWidgetState
     final viewMode = ref.watch(fileViewModeProvider);
     final limitedData = data.take(recentLimit).toList();
 
-    return PopScope(
-      canPop: false,
+    return  PopScope(
+      canPop: true,
       onPopInvoked: (didPop) async {
-        if (selectionState.isSelectionMode) {
+        if (!didPop && selectionState.isSelectionMode) {
           selectionNotifier.clearSelection();
-          return;
-        } else {
-          Navigator.pop(context);
         }
       },
       child: Scaffold(

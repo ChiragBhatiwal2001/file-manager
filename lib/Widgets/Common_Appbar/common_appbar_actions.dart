@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:file_manager/Services/file_operations.dart';
-import 'package:file_manager/Services/recycler_bin.dart';
 import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/bottom_sheet_paste_operation.dart';
 import 'package:file_manager/Providers/selction_notifier.dart';
+import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/show_progress_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -13,10 +13,12 @@ class SelectionActionsWidget extends ConsumerWidget {
     super.key,
     required this.onPostAction,
     this.enableShare = false,
+    required this.allCurrentPaths,
   });
 
   final VoidCallback onPostAction;
   final bool enableShare;
+  final List<String> allCurrentPaths;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -34,8 +36,13 @@ class SelectionActionsWidget extends ConsumerWidget {
         IconButton(
           icon: const Icon(Icons.delete),
           onPressed: () async {
-            final names = selectionState.selectedPaths.map(p.basename).toList();
             bool deletePermanently = false;
+            final selectedPaths = selectionState.selectedPaths;
+            final isSingle = selectedPaths.length == 1;
+            final contentMessage = isSingle
+                ? '${p.basename(selectedPaths.first)} will be deleted from this device.'
+                : '${selectedPaths.length} items will be deleted from this device.';
+
             final confirmed = await showDialog<bool>(
               context: context,
               builder: (context) {
@@ -46,19 +53,7 @@ class SelectionActionsWidget extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        SizedBox(
-                          height: 120,
-                          child: Scrollbar(
-                            thumbVisibility: true,
-                            child: ListView.builder(
-                              itemCount: names.length,
-                              itemBuilder: (context, index) => Text(
-                                "• ${names[index]}",
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          ),
-                        ),
+                        Text(contentMessage),
                         const SizedBox(height: 12),
                         CheckboxListTile(
                           title: const Text("Delete permanently"),
@@ -85,15 +80,24 @@ class SelectionActionsWidget extends ConsumerWidget {
               },
             );
             if (confirmed == true) {
-              if (deletePermanently) {
-                for (final path in selectionState.selectedPaths) {
-                  await RecentlyDeletedManager().deleteOriginalPath(path);
-                }
-              } else {
-                for (final path in selectionState.selectedPaths) {
-                  await FileOperations().deleteOperation(path);
-                }
-              }
+              await showProgressDialog(
+                context: context,
+                operation: (onProgress) async {
+                  final fileOps = FileOperations();
+                  if (deletePermanently) {
+                    await fileOps.deleteMultiplePermanently(
+                      selectedPaths.toList(),
+                      onProgress: onProgress,
+                    );
+                  } else {
+                    await fileOps.deleteMultiple(
+                      selectedPaths.toList(),
+                      onProgress: onProgress,
+                    );
+                  }
+                },
+              );
+
               selectionNotifier.clearSelection();
               onPostAction();
             }
@@ -117,7 +121,7 @@ class SelectionActionsWidget extends ConsumerWidget {
           },
         ),
         IconButton(
-          icon: const Icon(Icons.drive_file_move),
+          icon: const Icon(Icons.cut),
           onPressed: () {
             showModalBottomSheet(
               context: context,
@@ -133,37 +137,66 @@ class SelectionActionsWidget extends ConsumerWidget {
             });
           },
         ),
-        if (enableShare && !containsDirectory)
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () async {
-              final files = selectionState.selectedPaths
-                  .where((path) {
-                    final file = File(path);
-                    return file.existsSync() &&
-                        file.statSync().type != FileSystemEntityType.directory;
-                  })
-                  .map((path) => XFile(path))
-                  .toList();
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert),
+          onSelected: (value) async {
+            switch (value) {
+              case 'share':
+                final files = selectionState.selectedPaths
+                    .where((path) {
+                  final file = File(path);
+                  return file.existsSync() &&
+                      file.statSync().type != FileSystemEntityType.directory;
+                })
+                    .map((path) => XFile(path))
+                    .toList();
 
-              if (files.isNotEmpty) {
-                final params = ShareParams(files: files);
-                final result = await SharePlus.instance.share(params);
-                if (result.status == ShareResultStatus.success) {
-                  selectionNotifier.clearSelection();
-                } else if (result.status == ShareResultStatus.dismissed) {
-                  debugPrint('User dismissed the share sheet.');
+                if (files.isNotEmpty) {
+                  final params = ShareParams(files: files);
+                  final result = await SharePlus.instance.share(params);
+                  if (result.status == ShareResultStatus.success) {
+                    selectionNotifier.clearSelection();
+                  } else if (result.status == ShareResultStatus.dismissed) {
+                    debugPrint('User dismissed the share sheet.');
+                  }
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("No valid files to share.")),
+                  );
                 }
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("No valid files to share.")),
-                );
-              }
-            },
-          ),
-        IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: selectionNotifier.clearSelection,
+                break;
+              case 'select_all':
+                selectionNotifier.selectAll(allCurrentPaths);
+                break;
+              case 'close':
+                selectionNotifier.clearSelection();
+                break;
+            }
+          },
+          itemBuilder: (context) => [
+            if (enableShare && !containsDirectory)
+              const PopupMenuItem(
+                value: 'share',
+                child: ListTile(
+                  leading: Icon(Icons.share),
+                  title: Text('Share'),
+                ),
+              ),
+            const PopupMenuItem(
+              value: 'select_all',
+              child: ListTile(
+                leading: Icon(Icons.select_all),
+                title: Text('Select All'),
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'close',
+              child: ListTile(
+                leading: Icon(Icons.close),
+                title: Text('Clear Selection'),
+              ),
+            ),
+          ],
         ),
       ],
     );

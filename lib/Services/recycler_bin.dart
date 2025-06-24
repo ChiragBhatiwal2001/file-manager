@@ -109,7 +109,7 @@ class RecentlyDeletedManager {
 
   Future<void> autoCleanTrash() async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final threshold = 30 * 24 * 60 * 60 * 1000; // 30 days in ms
+    final threshold = 30 * 24 * 60 * 60 * 1000;
 
     final metadata = await _readMetadata();
     final toRemove = metadata.where((e) => now - e['deletedAt'] > threshold).toList();

@@ -45,11 +45,10 @@ class MyApp extends ConsumerWidget {
 
   ThemeData _buildCustomTheme(ColorScheme scheme, Brightness brightness) {
     final base = ThemeData(brightness: brightness, useMaterial3: true);
-    final isDark = brightness == Brightness.dark;
 
     return base.copyWith(
       colorScheme: scheme,
-      scaffoldBackgroundColor: scheme.background,
+      scaffoldBackgroundColor: scheme.surface,
       appBarTheme: AppBarTheme(
         backgroundColor: scheme.surface,
         foregroundColor: scheme.onSurface,

@@ -38,10 +38,8 @@ class _BottomSheetForSingleFileOperationState
 
   Future<void> _getFileDetails() async {
     setState(() => isLoading = true);
-
     final data = await getMetadata(widget.path);
     if (!mounted) return;
-
     setState(() {
       fileData = data;
       isLoading = false;
@@ -61,7 +59,7 @@ class _BottomSheetForSingleFileOperationState
       initialChildSize: isDirectory ? 0.9 : 1,
       builder: (context, scrollController) {
         return isLoading
-            ? Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator())
             : Container(
                 decoration: BoxDecoration(
                   color: theme.cardColor,
@@ -79,15 +77,11 @@ class _BottomSheetForSingleFileOperationState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Header
                     HeaderForSingleFileOperation(
                       fileData: fileData,
                       path: widget.path,
                     ),
-
                     const Divider(height: 24, thickness: 1),
-
-                    // Main Body
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -98,15 +92,9 @@ class _BottomSheetForSingleFileOperationState
                         ),
                       ),
                     ),
-
                     const Divider(thickness: 1),
-
-                    // Bottom Options
                     Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 0,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -119,18 +107,16 @@ class _BottomSheetForSingleFileOperationState
                               final notifier = ref.read(
                                 hiddenPathsProvider.notifier,
                               );
-
                               if (isHidden) {
                                 await notifier.unhidePath(widget.path);
                               } else {
                                 await notifier.hidePath(widget.path);
                               }
-
                               if (context.mounted) Navigator.pop(context);
                               widget.loadAgain(p.dirname(widget.path));
                             },
                           ),
-                          Divider(),
+                          const Divider(),
                           if (!isDirectory)
                             _OptionRow(
                               icon: Icons.share,

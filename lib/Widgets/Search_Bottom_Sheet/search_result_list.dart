@@ -68,7 +68,6 @@ class SearchResultList extends StatelessWidget {
             },
           ),
           title: HighlightText(text: filename, query: query),
-          subtitle: Text(file.path),
           onTap: () {
             FocusScope.of(context).unfocus();
             if (FileSystemEntity.isDirectorySync(file.path)) {

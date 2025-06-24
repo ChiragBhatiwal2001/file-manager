@@ -122,6 +122,7 @@ class FavoritesSection extends ConsumerWidget {
                 ),
               ),
             const SizedBox(height: 10),
+            if(!favorites.isEmpty)
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

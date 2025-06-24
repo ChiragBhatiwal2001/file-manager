@@ -45,7 +45,7 @@ class FavoritesDB {
     await db.insert('favorites', {
       'path': path,
       'isFolder': isFolder ? 1 : 0,
-      'orderIndex': minOrder - 1, // Insert on top
+      'orderIndex': minOrder - 1,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 

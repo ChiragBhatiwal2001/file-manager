@@ -1,21 +1,27 @@
-import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/file_list_widget.dart';
+import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/folder_list_widget.dart';
+import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/paste_button.dart';
+import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/paste_sheet_header.dart';
+import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/paste_worker.dart';
+import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/show_progress_dialog.dart';
 import 'package:flutter/foundation.dart';
-import 'package:path/path.dart' as p;
-import 'package:file_manager/Widgets/breadcrumb_widget.dart';
+import 'package:flutter/material.dart';
+import 'package:file_manager/Utils/constant.dart';
 import 'package:file_manager/Widgets/screen_empty_widget.dart';
+import 'package:file_manager/Widgets/breadcrumb_widget.dart';
 import 'package:file_manager/Helpers/add_folder_dialog.dart';
 import 'package:file_manager/Services/path_loading_operations.dart';
 import 'package:file_manager/Services/file_operations.dart';
-import 'package:file_manager/Utils/constant.dart';
-
-import 'file_list_widget.dart';
-import 'folder_list_widget.dart';
-import 'paste_sheet_header.dart';
-import 'paste_button.dart';
-import 'show_progress_dialog.dart';
+import 'dart:io';
+import 'dart:isolate';
+import 'dart:async';
 
 class BottomSheetForPasteOperation extends StatefulWidget {
+  final Set<String>? selectedPaths;
+  final String? selectedSinglePath;
+  final bool isCopy;
+  final bool isSingleOperation;
+
   const BottomSheetForPasteOperation({
     super.key,
     this.selectedPaths,
@@ -23,11 +29,6 @@ class BottomSheetForPasteOperation extends StatefulWidget {
     required this.isCopy,
     this.isSingleOperation = false,
   });
-
-  final Set<String>? selectedPaths;
-  final String? selectedSinglePath;
-  final bool isCopy;
-  final bool isSingleOperation;
 
   @override
   State<BottomSheetForPasteOperation> createState() =>
@@ -74,13 +75,11 @@ class _BottomSheetForPasteOperationState
     }
   }
 
-  Future<void> _createFolder() {
-    return addFolderDialog(
-      context: context,
-      parentPath: currentPath,
-      onSuccess: () => _loadContent(currentPath),
-    );
-  }
+  Future<void> _createFolder() => addFolderDialog(
+    context: context,
+    parentPath: currentPath,
+    onSuccess: () => _loadContent(currentPath),
+  );
 
   Future<void> _handlePaste() async {
     if (_isPasting) return;
@@ -88,18 +87,17 @@ class _BottomSheetForPasteOperationState
 
     final isSameDirectory =
         widget.isSingleOperation &&
-            widget.selectedSinglePath != null &&
-            Directory(widget.selectedSinglePath!).parent.path == currentPath;
-
+        widget.selectedSinglePath != null &&
+        Directory(widget.selectedSinglePath!).parent.path == currentPath;
     final isSameMulti =
         widget.selectedPaths != null &&
-            widget.selectedPaths!.every(
-                  (e) => Directory(e).parent.path == currentPath,
-            );
+        widget.selectedPaths!.every(
+          (e) => Directory(e).parent.path == currentPath,
+        );
 
     if (isSameDirectory || isSameMulti) {
       if (!context.mounted) return;
-      showDialog(
+      await showDialog(
         context: context,
         builder: (_) => const AlertDialog(
           title: Text("Invalid Operation"),
@@ -115,9 +113,10 @@ class _BottomSheetForPasteOperationState
     await showProgressDialog(
       context: rootContext,
       operation: (onProgress) async {
+        final fileOps = FileOperations();
         try {
           if (widget.isSingleOperation && widget.selectedSinglePath != null) {
-            await FileOperations().pasteFileToDestination(
+            await fileOps.pasteFileToDestination(
               widget.isCopy,
               currentPath,
               widget.selectedSinglePath!,
@@ -125,33 +124,23 @@ class _BottomSheetForPasteOperationState
             );
           } else if (widget.selectedPaths != null &&
               widget.selectedPaths!.isNotEmpty) {
-            final paths = widget.selectedPaths!.toList();
-            int totalSize = 0;
-            final fileOps = FileOperations();
-            final pathSizes = <String, int>{};
+            final receivePort = ReceivePort();
+            await Isolate.spawn(pasteWorker, {
+              'paths': widget.selectedPaths!.toList(),
+              'destination': currentPath,
+              'isCopy': widget.isCopy,
+              'sendPort': receivePort.sendPort,
+            });
 
-            for (var path in paths) {
-              final size = await fileOps.getEntitySize(path);
-              totalSize += size;
-              pathSizes[path] = size;
+            await for (var message in receivePort) {
+              if (message is double) {
+                onProgress(message);
+              } else if (message == 'done') {
+                receivePort.close();
+                break;
+              }
             }
 
-            int copied = 0;
-            for (var path in paths) {
-              final size = pathSizes[path]!;
-              await fileOps.pasteFileToDestination(
-                widget.isCopy,
-                currentPath,
-                path,
-                onProgress: (progress) {
-                  onProgress(((copied + (progress * size)) / totalSize)
-                      .clamp(0, 1));
-                },
-              );
-              copied += size;
-            }
-
-            onProgress(1.0);
             widget.selectedPaths!.clear();
           }
         } catch (e) {
@@ -202,8 +191,16 @@ class _BottomSheetForPasteOperationState
                   controller: scrollController,
                   slivers: [
                     if (folders.isNotEmpty)
-                      FolderListWidget(folders: folders, onTap: _loadContent),
-                    if (files.isNotEmpty) FileListWidget(files: files),
+                      FolderListWidget(
+                        folders: folders,
+                        selectedPaths: widget.selectedPaths ?? {},
+                        onTap: _loadContent,
+                      ),
+                    if (files.isNotEmpty)
+                      FileListWidget(
+                        files: files,
+                        selectedPaths: widget.selectedPaths ?? {},
+                      ),
                   ],
                 ),
               ),

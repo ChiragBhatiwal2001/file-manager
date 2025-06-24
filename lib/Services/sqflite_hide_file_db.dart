@@ -28,7 +28,6 @@ class HiddenFileDb {
       );
       return result != null && result > 0;
     } catch (e) {
-      print('❌ Error inserting into DB: $e');
       return false;
     }
   }
@@ -42,7 +41,6 @@ class HiddenFileDb {
       );
       return result != null && result > 0;
     } catch (e) {
-      print('❌ Error deleting from DB: $e');
       return false;
     }
   }

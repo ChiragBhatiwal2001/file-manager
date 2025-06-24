@@ -61,7 +61,6 @@ class _BreadcrumbWidget extends State<BreadcrumbWidget> {
         breadcrumbNames.add(part);
       }
     } else {
-      // Fallback for non-internal paths
       List<String> parts = path.split('/')..removeWhere((e) => e.isEmpty);
       String current = '';
       for (var part in parts) {

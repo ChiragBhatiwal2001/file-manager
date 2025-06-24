@@ -2,7 +2,6 @@ import 'package:file_manager/Helpers/add_folder_dialog.dart';
 import 'package:file_manager/Providers/file_explorer_notifier.dart';
 import 'package:file_manager/Providers/selction_notifier.dart';
 import 'package:file_manager/Providers/view_toggle_notifier.dart';
-import 'package:file_manager/Services/shared_preference.dart';
 import 'package:file_manager/Utils/constant.dart';
 import 'package:file_manager/Widgets/Common_Appbar/common_appbar_actions.dart';
 import 'package:file_manager/Widgets/Search_Bottom_Sheet/search_bottom_sheet.dart';
@@ -31,6 +30,10 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
     final currentState = ref.watch(
       fileExplorerProvider(widget.initialPath ?? Constant.internalPath),
     );
+    final allCurrentPaths = [
+      ...currentState.folders.map((e) => e.path),
+      ...currentState.files.map((e) => e.path),
+    ];
     final notifier = ref.read(
       fileExplorerProvider(
         widget.initialPath ?? Constant.internalPath,
@@ -67,7 +70,7 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
           ),
           elevation: 2,
           actions: selectionState.isSelectionMode
-              ? [SelectionActionsWidget(onPostAction: () => notifier.loadAllContentOfPath(currentState.currentPath), enableShare: true)]
+              ? [SelectionActionsWidget(onPostAction: () => notifier.loadAllContentOfPath(currentState.currentPath), allCurrentPaths: allCurrentPaths ,enableShare: true)]
               : [
             IconButton(
               onPressed: () {

@@ -94,14 +94,12 @@ class _QuickAccessScreenState extends ConsumerState<QuickAccessScreen> {
     final selectionState = ref.watch(selectionProvider);
     final selectionNotifier = ref.read(selectionProvider.notifier);
     final fileViewMode = ref.watch(fileViewModeProvider);
+    final allCurrentPaths = data.map((e) => e.path).toList();
     return PopScope(
-      canPop: false,
+      canPop: true,
       onPopInvoked: (didPop) async {
-        if (selectionState.isSelectionMode) {
+        if (!didPop && selectionState.isSelectionMode) {
           selectionNotifier.clearSelection();
-          return;
-        } else {
-          Navigator.pop(context);
         }
       },
       child: Scaffold(
@@ -109,8 +107,15 @@ class _QuickAccessScreenState extends ConsumerState<QuickAccessScreen> {
           title: widget.category.name.toUpperCase(),
           isLoading: _isLoading,
           itemCount: data.length,
+
           actions: selectionState.isSelectionMode
-              ? [SelectionActionsWidget(onPostAction: _getDataForDisplay,enableShare: true,)]
+              ? [
+                  SelectionActionsWidget(
+                    onPostAction: _getDataForDisplay,
+                    enableShare: true,
+                    allCurrentPaths: allCurrentPaths,
+                  ),
+                ]
               : [
                   IconButton(
                     onPressed: () {

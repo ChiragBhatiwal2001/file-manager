@@ -54,6 +54,7 @@ class _SettingScreenState extends ConsumerState<SettingScreen> {
               "Theme",
               style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
             ),
+            subtitle: Text(isDark ? "Dark Mode" : "Light Mode"),
             leading: Icon(isDark ? Icons.dark_mode : Icons.light_mode),
             trailing: Switch(
               value: isDark,

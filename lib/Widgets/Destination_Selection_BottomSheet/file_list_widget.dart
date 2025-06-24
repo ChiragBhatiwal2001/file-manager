@@ -1,10 +1,16 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 
 class FileListWidget extends StatelessWidget {
   final List<FileSystemEntity> files;
+  final Set<String> selectedPaths;
 
-  const FileListWidget({super.key, required this.files});
+  const FileListWidget({
+    super.key,
+    required this.files,
+    required this.selectedPaths,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -12,12 +18,27 @@ class FileListWidget extends StatelessWidget {
       delegate: SliverChildBuilderDelegate(
             (context, index) {
           final file = files[index];
-          final name = file.path.split(Platform.pathSeparator).last;
+          final path = file.path;
+          final name = p.basename(path);
+          final isSelected = selectedPaths.contains(path);
 
           return ListTile(
-            leading: const Icon(Icons.insert_drive_file, color: Colors.blueGrey),
-            title: Text(name, overflow: TextOverflow.ellipsis),
-            onTap: () {
+            leading: Icon(
+              Icons.insert_drive_file,
+              color: isSelected ? Colors.grey : Colors.blueGrey,
+            ),
+            title: Text(
+              name,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: isSelected ? Colors.grey : null,
+              ),
+            ),
+
+            enabled: !isSelected,
+            onTap: isSelected
+                ? null
+                : () {
               showDialog(
                 context: context,
                 builder: (_) => const AlertDialog(

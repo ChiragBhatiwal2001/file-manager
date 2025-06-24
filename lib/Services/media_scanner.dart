@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'dart:io';
+import 'package:file_manager/Utils/restricted_files.dart';
 import 'package:path/path.dart' as p;
 import 'package:file_manager/Utils/MediaUtils.dart';
 import 'package:file_manager/Utils/constant.dart';
@@ -17,21 +18,11 @@ class MediaScanner {
 
     if (!await dir.exists()) return mediaFiles;
 
-    final restrictedFolders = [
-      '${Constant.internalPath}/Android/data',
-      '${Constant.internalPath}/Android/obb',
-      '${Constant.internalPath}/.file_manager_trash',
-    ].map(p.normalize).toList();
-
     try {
       await for (var entity in dir.list(recursive: false, followLinks: false)) {
         final path = p.normalize(entity.path);
 
-        // Skip restricted folders
-        final isRestricted = restrictedFolders.any((r) =>
-        p.equals(r, path) || p.isWithin(r, path)
-        );
-        if (isRestricted) continue;
+        if (FileFilterUtils.shouldHideEntity(entity)) continue;
 
         if (entity is Directory) {
           mediaFiles.addAll(await scanDirectory(entity));

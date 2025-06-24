@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math' as Math;
+import 'package:file_manager/Utils/constant.dart';
 import 'package:path/path.dart' as p;
 
 Future<Map<String, dynamic>> getMetadata(String path) async {
@@ -20,28 +21,60 @@ Future<Map<String, dynamic>> getMetadata(String path) async {
     'Type': isFile ? p.extension(path) : 'Folder',
     'Size': _formatSize(size),
     'Modified':
-    "${stat.modified.day.toString().padLeft(2, '0')} ${_getMonthName(stat.modified.month)} ${stat.modified.year}",
+        "${stat.modified.day.toString().padLeft(2, '0')} ${_getMonthName(stat.modified.month)} ${stat.modified.year}",
     'Is Hidden': p.basename(path).startsWith('.'),
   };
 }
 
 Future<int> _getFolderSizeAsync(Directory dir) async {
   int size = 0;
+
+  final restrictedDirs = [
+    '${Constant.internalPath}/Android/data',
+    '${Constant.internalPath}/Android/obb',
+  ];
+
   try {
-    await for (FileSystemEntity entity
-    in dir.list(recursive: true, followLinks: false)) {
+    await for (FileSystemEntity entity in dir.list(
+      recursive: false,
+      followLinks: false,
+    )) {
+      final path = entity.path;
+
+      if (entity is Directory &&
+          restrictedDirs.any((restricted) => path.endsWith(restricted))) {
+        continue;
+      }
+
       if (entity is File) {
-        size += await entity.length();
+        try {
+          size += await entity.length();
+        } catch (_) {}
+      } else if (entity is Directory) {
+        try {
+          size += await _getFolderSizeAsync(entity);
+        } catch (_) {}
       }
     }
   } catch (_) {}
+
   return size;
 }
 
 String _getMonthName(int month) {
   const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
   return months[month - 1];
 }
