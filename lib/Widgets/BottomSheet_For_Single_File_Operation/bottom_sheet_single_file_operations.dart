@@ -136,9 +136,12 @@ class _BottomSheetForSingleFileOperationState
                               icon: Icons.share,
                               label: "Share",
                               onTap: () async {
-                                final result = await Share.shareXFiles([
-                                  XFile(widget.path),
-                                ]);
+                                final params = ShareParams(
+                                  files: [XFile(widget.path)],
+                                );
+                                final result = await SharePlus.instance.share(
+                                  params,
+                                );
                                 if (result.status ==
                                         ShareResultStatus.dismissed &&
                                     context.mounted) {

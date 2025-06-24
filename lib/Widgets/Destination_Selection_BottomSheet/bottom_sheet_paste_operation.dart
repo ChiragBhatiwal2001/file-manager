@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import 'package:file_manager/Widgets/breadcrumb_widget.dart';
 import 'package:file_manager/Widgets/screen_empty_widget.dart';
 import 'package:file_manager/Helpers/add_folder_dialog.dart';
@@ -37,6 +38,7 @@ class _BottomSheetForPasteOperationState
     extends State<BottomSheetForPasteOperation> {
   late String currentPath;
   bool isLoading = false;
+  bool _isPasting = false;
   List<FileSystemEntity> folders = [];
   List<FileSystemEntity> files = [];
 
@@ -81,16 +83,19 @@ class _BottomSheetForPasteOperationState
   }
 
   Future<void> _handlePaste() async {
+    if (_isPasting) return;
+    setState(() => _isPasting = true);
+
     final isSameDirectory =
         widget.isSingleOperation &&
-        widget.selectedSinglePath != null &&
-        Directory(widget.selectedSinglePath!).parent.path == currentPath;
+            widget.selectedSinglePath != null &&
+            Directory(widget.selectedSinglePath!).parent.path == currentPath;
 
     final isSameMulti =
         widget.selectedPaths != null &&
-        widget.selectedPaths!.every(
-          (e) => Directory(e).parent.path == currentPath,
-        );
+            widget.selectedPaths!.every(
+                  (e) => Directory(e).parent.path == currentPath,
+            );
 
     if (isSameDirectory || isSameMulti) {
       if (!context.mounted) return;
@@ -101,6 +106,7 @@ class _BottomSheetForPasteOperationState
           content: Text("You can't paste into the same directory."),
         ),
       );
+      setState(() => _isPasting = false);
       return;
     }
 
@@ -109,46 +115,67 @@ class _BottomSheetForPasteOperationState
     await showProgressDialog(
       context: rootContext,
       operation: (onProgress) async {
-        if (widget.isSingleOperation && widget.selectedSinglePath != null) {
-          await FileOperations().pasteFileToDestination(
-            widget.isCopy,
-            currentPath,
-            widget.selectedSinglePath!,
-            onProgress: onProgress,
-          );
-        } else if (widget.selectedPaths != null &&
-            widget.selectedPaths!.isNotEmpty) {
-          final paths = widget.selectedPaths!.toList();
-          int totalSize = 0;
-          for (var path in paths) {
-            totalSize += await FileOperations().getEntitySize(path);
-          }
-
-          int copied = 0;
-          for (var path in paths) {
+        try {
+          if (widget.isSingleOperation && widget.selectedSinglePath != null) {
             await FileOperations().pasteFileToDestination(
               widget.isCopy,
               currentPath,
-              path,
-              onProgress: (progress) async {
-                final size = await FileOperations().getEntitySize(path);
-                onProgress(
-                  ((copied + (progress * size)) / totalSize).clamp(0, 1),
-                );
-              },
+              widget.selectedSinglePath!,
+              onProgress: onProgress,
             );
-            copied += await FileOperations().getEntitySize(path);
-          }
+          } else if (widget.selectedPaths != null &&
+              widget.selectedPaths!.isNotEmpty) {
+            final paths = widget.selectedPaths!.toList();
+            int totalSize = 0;
+            final fileOps = FileOperations();
+            final pathSizes = <String, int>{};
 
-          onProgress(1.0);
-          widget.selectedPaths!.clear();
+            for (var path in paths) {
+              final size = await fileOps.getEntitySize(path);
+              totalSize += size;
+              pathSizes[path] = size;
+            }
+
+            int copied = 0;
+            for (var path in paths) {
+              final size = pathSizes[path]!;
+              await fileOps.pasteFileToDestination(
+                widget.isCopy,
+                currentPath,
+                path,
+                onProgress: (progress) {
+                  onProgress(((copied + (progress * size)) / totalSize)
+                      .clamp(0, 1));
+                },
+              );
+              copied += size;
+            }
+
+            onProgress(1.0);
+            widget.selectedPaths!.clear();
+          }
+        } catch (e) {
+          if (context.mounted) {
+            await showDialog(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text("Paste Error"),
+                content: Text("An error occurred during paste:\n$e"),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("OK"),
+                  ),
+                ],
+              ),
+            );
+          }
         }
       },
     );
 
-    if (mounted) {
-      Navigator.of(context).pop(true);
-    }
+    if (mounted) Navigator.of(context).pop(true);
+    setState(() => _isPasting = false);
   }
 
   @override

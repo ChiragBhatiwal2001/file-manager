@@ -70,7 +70,7 @@ class _BodyForSingleFileOperationState
 
   Future<void> _showPasteSheet(BuildContext context, bool isCopy) async {
     try {
-      await showModalBottomSheet(
+      final resultPath = await showModalBottomSheet<String>(
         isScrollControlled: true,
         useSafeArea: true,
         context: context,
@@ -80,7 +80,69 @@ class _BodyForSingleFileOperationState
           selectedSinglePath: widget.path,
         ),
       );
-      widget.loadAgain(p.dirname(widget.path));
+
+      if (resultPath != null && resultPath != widget.path) {
+
+        double progress = 0.0;
+
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => StatefulBuilder(
+            builder: (context, setState) {
+              // Start the file operation
+              FileOperations()
+                  .pasteFileToDestination(
+                isCopy,
+                resultPath,
+                widget.path,
+                onProgress: (val) {
+                  setState(() => progress = val);
+                },
+              )
+                  .then((_) async {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  await showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text("Success"),
+                      content: Text(isCopy
+                          ? "File copied successfully."
+                          : "File moved successfully."),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text("OK"),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                widget.loadAgain(p.dirname(widget.path));
+              }).catchError((e) async {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  await _showErrorDialog(
+                      context, "${isCopy ? "Copy" : "Move"} failed.\n$e");
+                }
+              });
+
+              return AlertDialog(
+                title: Text(isCopy ? "Copying..." : "Moving..."),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LinearProgressIndicator(value: progress),
+                    const SizedBox(height: 12),
+                    Text("${(progress * 100).toStringAsFixed(1)}%"),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      }
     } catch (e) {
       await _showErrorDialog(
         context,
@@ -88,6 +150,7 @@ class _BodyForSingleFileOperationState
       );
     }
   }
+
 
   Future<void> _toggleFavorite(BuildContext context, bool isFavorite) async {
     Navigator.pop(context);

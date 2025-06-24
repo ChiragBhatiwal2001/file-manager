@@ -1,24 +1,34 @@
 import 'dart:io';
+import 'dart:isolate';
 import 'package:file_manager/Services/recycler_bin.dart';
+import 'package:path/path.dart' as p;
 
 class FileOperations {
   Future<void> pasteFileToDestination(
-    bool isCopy,
-    String destination,
-    String source, {
-    void Function(double progress)? onProgress,
-  }) async {
-    final name = source.split("/").last;
-    final pathName = "$destination/$name";
+      bool isCopy,
+      String destination,
+      String source, {
+        void Function(double progress)? onProgress,
+      }) async {
+    final name = p.basename(source);
+    final targetPath = p.join(destination, name);
     final type = FileSystemEntity.typeSync(source);
 
     if (isCopy) {
       if (type == FileSystemEntityType.file) {
-        await _copyFileWithProgress(File(source), File(pathName), onProgress);
+        final fileSize = await File(source).length();
+        if (fileSize > 500 * 1024 * 1024) {
+          // Large file: isolate-based
+          await _copyFileInIsolate(source, targetPath);
+          onProgress?.call(1.0);
+        } else {
+          // Stream copy with progress
+          await _copyFileWithProgress(File(source), File(targetPath), onProgress);
+        }
       } else {
         final totalSize = await _getTotalSize(Directory(source));
         double copied = 0;
-        await _copyFolder(Directory(source), Directory(pathName), (inc) {
+        await _copyFolder(Directory(source), Directory(targetPath), (inc) {
           copied += inc;
           onProgress?.call(
             (totalSize == 0) ? 1.0 : (copied / totalSize).clamp(0, 1),
@@ -27,16 +37,21 @@ class FileOperations {
       }
     } else {
       if (type == FileSystemEntityType.file) {
-        await File(source).rename(pathName);
-        onProgress?.call(1.0);
+        try {
+          await File(source).rename(targetPath);
+          onProgress?.call(1.0);
+        } catch (_) {
+          await _copyFileWithProgress(File(source), File(targetPath), onProgress);
+          await File(source).delete();
+        }
       } else if (type == FileSystemEntityType.directory) {
         try {
-          await Directory(source).rename(pathName);
+          await Directory(source).rename(targetPath);
           onProgress?.call(1.0);
         } catch (e) {
           final totalSize = await _getTotalSize(Directory(source));
           double copied = 0;
-          await _copyFolder(Directory(source), Directory(pathName), (inc) {
+          await _copyFolder(Directory(source), Directory(targetPath), (inc) {
             copied += inc;
             onProgress?.call(
               (totalSize == 0) ? 1.0 : (copied / totalSize).clamp(0, 1),
@@ -55,9 +70,7 @@ class FileOperations {
       return await File(path).length();
     } else if (type == FileSystemEntityType.directory) {
       int size = 0;
-      await for (var entity in Directory(
-        path,
-      ).list(recursive: true, followLinks: false)) {
+      await for (var entity in Directory(path).list(recursive: true, followLinks: false)) {
         if (entity is File) size += await entity.length();
       }
       return size;
@@ -66,10 +79,10 @@ class FileOperations {
   }
 
   Future<void> _copyFileWithProgress(
-    File source,
-    File dest,
-    void Function(double progress)? onProgress,
-  ) async {
+      File source,
+      File dest,
+      void Function(double progress)? onProgress,
+      ) async {
     final srcLength = await source.length();
     final srcStream = source.openRead();
     final destSink = dest.openWrite();
@@ -87,19 +100,19 @@ class FileOperations {
   }
 
   Future<void> _copyFolder(
-    Directory source,
-    Directory destination,
-    void Function(int bytesCopied)? onBytesCopied,
-  ) async {
-    await destination.create();
+      Directory source,
+      Directory destination,
+      void Function(int bytesCopied)? onBytesCopied,
+      ) async {
+    await destination.create(recursive: true);
     await for (var entity in source.list(recursive: false)) {
-      final name = entity.path.split("/").last;
-      final pathName = "${destination.path}/$name";
+      final name = p.basename(entity.path);
+      final targetPath = p.join(destination.path, name);
       if (entity is Directory) {
-        await _copyFolder(entity, Directory(pathName), onBytesCopied);
+        await _copyFolder(entity, Directory(targetPath), onBytesCopied);
       } else if (entity is File) {
         final srcLength = await entity.length();
-        await _copyFileWithProgress(entity, File(pathName), (progress) {
+        await _copyFileWithProgress(entity, File(targetPath), (progress) {
           if (progress == 1.0) onBytesCopied?.call(srcLength);
         });
       }
@@ -114,6 +127,25 @@ class FileOperations {
       }
     }
     return size;
+  }
+
+  Future<void> _copyFileInIsolate(String source, String destination) async {
+    final receivePort = ReceivePort();
+    await Isolate.spawn<_CopyParams>(_copyFileIsolateEntry, _CopyParams(
+      sourcePath: source,
+      destinationPath: destination,
+      sendPort: receivePort.sendPort,
+    ));
+    await receivePort.first; // Wait for completion signal
+  }
+
+  static void _copyFileIsolateEntry(_CopyParams params) async {
+    final src = File(params.sourcePath);
+    final dest = File(params.destinationPath);
+    final input = src.openRead();
+    final output = dest.openWrite();
+    await input.pipe(output);
+    params.sendPort.send(true);
   }
 
   Future<void> deleteOperation(String filePath) async {
@@ -147,4 +179,16 @@ class FileOperations {
     }
     onProgress?.call(1.0);
   }
+}
+
+class _CopyParams {
+  final String sourcePath;
+  final String destinationPath;
+  final SendPort sendPort;
+
+  _CopyParams({
+    required this.sourcePath,
+    required this.destinationPath,
+    required this.sendPort,
+  });
 }

@@ -35,7 +35,6 @@ class _QuickAccessScreenState extends ConsumerState<QuickAccessScreen> {
   bool _isLoading = false;
   late ValueNotifier<Set<String>> selectedPaths;
   String currentSortValue = "name-asc";
-  String _viewMode = "List View";
 
   @override
   void initState() {
@@ -111,7 +110,7 @@ class _QuickAccessScreenState extends ConsumerState<QuickAccessScreen> {
           isLoading: _isLoading,
           itemCount: data.length,
           actions: selectionState.isSelectionMode
-              ? [SelectionActionsWidget(onPostAction: _getDataForDisplay)]
+              ? [SelectionActionsWidget(onPostAction: _getDataForDisplay,enableShare: true,)]
               : [
                   IconButton(
                     onPressed: () {
