@@ -16,7 +16,9 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:async';
 
-class BottomSheetForPasteOperation extends StatefulWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class BottomSheetForPasteOperation extends ConsumerStatefulWidget {
   final Set<String>? selectedPaths;
   final String? selectedSinglePath;
   final bool isCopy;
@@ -31,12 +33,12 @@ class BottomSheetForPasteOperation extends StatefulWidget {
   });
 
   @override
-  State<BottomSheetForPasteOperation> createState() =>
+  ConsumerState<BottomSheetForPasteOperation> createState() =>
       _BottomSheetForPasteOperationState();
 }
 
 class _BottomSheetForPasteOperationState
-    extends State<BottomSheetForPasteOperation> {
+    extends ConsumerState<BottomSheetForPasteOperation> {
   late String currentPath;
   bool isLoading = false;
   bool _isPasting = false;
@@ -62,17 +64,13 @@ class _BottomSheetForPasteOperationState
   }
 
   Future<void> _goBack() async {
-    final data = await PathLoadingOperations.goBackToParentPath(
-      context,
-      currentPath,
-    );
-    if (data != null) {
-      setState(() {
-        currentPath = Directory(currentPath).parent.path;
-        folders = data.folders;
-        files = data.files;
-      });
+    final parentPath = PathLoadingOperations.goBackToParentPath(currentPath);
+    if (parentPath == null) {
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+      return;
     }
+
+    await _loadContent(parentPath);
   }
 
   Future<void> _createFolder() => addFolderDialog(
@@ -80,6 +78,28 @@ class _BottomSheetForPasteOperationState
     parentPath: currentPath,
     onSuccess: () => _loadContent(currentPath),
   );
+
+  Future<String?> _checkNameConflicts() async {
+    List<String> existingNames = [
+      ...folders.map((e) => e.path.split("/").last),
+      ...files.map((e) => e.path.split("/").last),
+    ];
+
+    if (widget.isSingleOperation && widget.selectedSinglePath != null) {
+      String name = widget.selectedSinglePath!.split("/").last;
+      if (existingNames.contains(name)) return name;
+    }
+
+    if (widget.selectedPaths != null) {
+      for (String path in widget.selectedPaths!) {
+        String name = path.split("/").last;
+        if (existingNames.contains(name)) return name;
+      }
+    }
+
+    return null; // No conflict
+  }
+
 
   Future<void> _handlePaste() async {
     if (_isPasting) return;
@@ -102,6 +122,26 @@ class _BottomSheetForPasteOperationState
         builder: (_) => const AlertDialog(
           title: Text("Invalid Operation"),
           content: Text("You can't paste into the same directory."),
+        ),
+      );
+      setState(() => _isPasting = false);
+      return;
+    }
+
+    final conflictName = await _checkNameConflicts();
+    if (conflictName != null) {
+      if (!context.mounted) return;
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text("Conflict Detected"),
+          content: Text("A file or folder named \"$conflictName\" already exists in this location."),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("OK"),
+            ),
+          ],
         ),
       );
       setState(() => _isPasting = false);

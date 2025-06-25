@@ -10,19 +10,20 @@ import 'package:file_manager/Services/path_loading_operations.dart';
 import 'package:file_manager/Services/sorting_operation.dart';
 
 import 'package:file_manager/Services/sort_preference_db.dart';
+import 'package:path/path.dart';
 
 class FileExplorerNotifier extends StateNotifier<FileExplorerState> {
   FileExplorerNotifier(String initialPath)
-      : super(
-    FileExplorerState(
-      currentPath: initialPath,
-      folders: [],
-      files: [],
-      isLoading: false,
-      sortValue: "name-asc",
-      lastModifiedMap: {},
-    ),
-  ) {
+    : super(
+        FileExplorerState(
+          currentPath: initialPath,
+          folders: [],
+          files: [],
+          isLoading: false,
+          sortValue: "name-asc",
+          lastModifiedMap: {},
+        ),
+      ) {
     _init(initialPath);
   }
 
@@ -82,9 +83,9 @@ class FileExplorerNotifier extends StateNotifier<FileExplorerState> {
   }
 
   Future<void> setSortValue(
-      String sortValue, {
-        bool forCurrentPath = false,
-      }) async {
+    String sortValue, {
+    bool forCurrentPath = false,
+  }) async {
     if (!mounted) return;
 
     if (forCurrentPath) {
@@ -99,20 +100,27 @@ class FileExplorerNotifier extends StateNotifier<FileExplorerState> {
     await loadAllContentOfPath(state.currentPath);
   }
 
-  Future<void> goBack(String path, BuildContext context) async {
+  Future<void> goBack(BuildContext context, WidgetRef ref) async {
     if (!mounted) return;
 
-    final data = await PathLoadingOperations.goBackToParentPath(context, path);
-    if (!mounted || data == null) return;
+    final newPath = PathLoadingOperations.goBackToParentPath(state.currentPath);
+    if (newPath == null) {
+      if (Navigator.of(context).canPop()) Navigator.pop(context);
+      return;
+    }
+    ref.read(currentPathProvider.notifier).state = newPath;
 
-    String parentPath = Directory(path).parent.path;
-    await loadAllContentOfPath(parentPath);
+    await loadAllContentOfPath(newPath);
   }
 }
 
 final fileExplorerProvider =
-StateNotifierProvider.family<
-    FileExplorerNotifier,
-    FileExplorerState,
-    String?
->((ref, path) => FileExplorerNotifier(path ?? Constant.internalPath!));
+    StateNotifierProvider.family<
+      FileExplorerNotifier,
+      FileExplorerState,
+      String?
+    >((ref, path) => FileExplorerNotifier(path ?? Constant.internalPath!));
+
+final currentPathProvider = StateProvider<String>((ref) {
+  return Constant.internalPath!;
+});

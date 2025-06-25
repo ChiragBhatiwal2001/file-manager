@@ -31,17 +31,14 @@ class PathLoadingOperations {
     return await loadContent(path);
   }
 
-  static Future<DirectoryContent?> goBackToParentPath(
-    BuildContext context,
-    String currentPath,
-  ) async {
-    String rootPath = _internalStoragePath!;
-    String parentPath = Directory(currentPath).parent.path;
+  static String? goBackToParentPath(String currentPath) {
+    final rootPath = _internalStoragePath!;
+    final parentPath = Directory(currentPath).parent.path;
 
     if (currentPath == rootPath || !parentPath.startsWith(rootPath)) {
-      Navigator.pop(context);
       return null;
     }
-    return loadContent(parentPath);
+    return parentPath;
   }
+
 }

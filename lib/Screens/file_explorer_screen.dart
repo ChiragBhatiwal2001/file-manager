@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:file_manager/Providers/selction_notifier.dart';
 import 'package:file_manager/Providers/view_toggle_notifier.dart';
 import 'package:file_manager/Utils/constant.dart';
@@ -17,27 +19,27 @@ class FileExplorerScreen extends ConsumerStatefulWidget {
   ConsumerState<FileExplorerScreen> createState() => _FileExplorerScreenState();
 }
 
-class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen>
-    with RouteAware {
-  final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> with RouteAware {
+  late String _startingPath;
+
+  @override
+  void initState() {
+    super.initState();
+    _startingPath = widget.initialPath ?? Constant.internalPath!;
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Load initial path content when screen loads
+
     Future.microtask(() {
-      final path = widget.initialPath ?? Constant.internalPath!;
-      ref.read(fileExplorerProvider(path).notifier).loadAllContentOfPath(path);
+      ref.read(fileExplorerProvider(_startingPath).notifier).loadAllContentOfPath(_startingPath);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final initialPath = widget.initialPath ?? Constant.internalPath!;
-    final initialState = ref.watch(fileExplorerProvider(initialPath));
-    final currentPath = initialState.currentPath;
-
-    // Now dynamically compute based on currentPath
+    final currentPath = ref.watch(currentPathProvider);
     final providerInstance = fileExplorerProvider(currentPath);
     final explorerState = ref.watch(providerInstance);
     final notifier = ref.read(providerInstance.notifier);
@@ -55,14 +57,14 @@ class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen>
 
         if (!didPop && explorerState.currentPath != Constant.internalPath) {
           if (!mounted) return;
-          await notifier.goBack(explorerState.currentPath, context);
-        } else if (!didPop &&
-            explorerState.currentPath == Constant.internalPath) {
+          await notifier.goBack(context, ref); // pass ref to notifier!
+        } else if (!didPop && explorerState.currentPath == Constant.internalPath) {
           if (Navigator.of(context).canPop()) {
             Navigator.of(context).pop();
           }
         }
       },
+
       child: Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(104.0),

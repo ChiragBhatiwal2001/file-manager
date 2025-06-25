@@ -27,31 +27,27 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
   @override
   Widget build(BuildContext context) {
     final fileViewMode = ref.watch(fileViewModeProvider);
-    final currentState = ref.watch(
-      fileExplorerProvider(widget.initialPath ?? Constant.internalPath),
-    );
+    final currentPath = ref.watch(currentPathProvider);
+
+    final currentState = ref.watch(fileExplorerProvider(currentPath));
+    final notifier = ref.read(fileExplorerProvider(currentPath).notifier);
+
     final allCurrentPaths = [
       ...currentState.folders.map((e) => e.path),
       ...currentState.files.map((e) => e.path),
     ];
-    final notifier = ref.read(
-      fileExplorerProvider(
-        widget.initialPath ?? Constant.internalPath,
-      ).notifier,
-    );
 
     final selectionState = ref.watch(selectionProvider);
 
-    final String headingPath = currentState.currentPath == Constant.internalPath
+    final String headingPath = currentPath == Constant.internalPath
         ? "All Files"
-        : p.basename(currentState.currentPath);
+        : p.basename(currentPath);
 
     void showAddFolderDialog() {
       addFolderDialog(
         context: context,
-        parentPath: currentState.currentPath,
-        onSuccess: () =>
-            notifier.loadAllContentOfPath(currentState.currentPath),
+        parentPath: currentPath,
+        onSuccess: () => notifier.loadAllContentOfPath(currentPath),
       );
     }
 
@@ -60,7 +56,7 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
       children: [
         AppBar(
           leading: IconButton(
-            onPressed: () => notifier.goBack(currentState.currentPath, context),
+            onPressed: () => notifier.goBack(context, ref),
             icon: const Icon(Icons.arrow_back),
           ),
           titleSpacing: 0,
@@ -70,7 +66,14 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
           ),
           elevation: 2,
           actions: selectionState.isSelectionMode
-              ? [SelectionActionsWidget(onPostAction: () => notifier.loadAllContentOfPath(currentState.currentPath), allCurrentPaths: allCurrentPaths ,enableShare: true)]
+              ? [
+            SelectionActionsWidget(
+              onPostAction: () =>
+                  notifier.loadAllContentOfPath(currentPath),
+              allCurrentPaths: allCurrentPaths,
+              enableShare: true,
+            )
+          ]
               : [
             IconButton(
               onPressed: () {
@@ -82,7 +85,7 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
                       SearchBottomSheet(Constant.internalPath!),
                 );
               },
-              icon: Icon(Icons.search),
+              icon: const Icon(Icons.search),
             ),
             SettingPopupMenuWidget(
               popupList: [
@@ -93,17 +96,12 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
               onViewModeChanged: (mode) {
                 ref.read(fileViewModeProvider.notifier).setMode(mode);
               },
-              currentPath: currentState.currentPath,
-              currentSortValue: ref
-                  .watch(fileExplorerProvider(currentState.currentPath))
-                  .sortValue,
+              currentPath: currentPath,
+              currentSortValue:
+              ref.watch(fileExplorerProvider(currentPath)).sortValue,
               setSortValue: (sortValue, {forCurrentPath = false}) {
                 return ref
-                    .read(
-                  fileExplorerProvider(
-                    currentState.currentPath,
-                  ).notifier,
-                )
+                    .read(fileExplorerProvider(currentPath).notifier)
                     .setSortValue(
                   sortValue,
                   forCurrentPath: forCurrentPath,
@@ -119,7 +117,7 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
           color: Theme.of(context).colorScheme.surface,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: BreadcrumbWidget(
-            path: currentState.currentPath,
+            path: currentPath,
             loadContent: notifier.loadAllContentOfPath,
           ),
         ),

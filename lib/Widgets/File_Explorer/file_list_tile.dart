@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'package:file_manager/Providers/folder_meta_deta_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_manager/Utils/MediaUtils.dart';
@@ -14,10 +13,16 @@ import 'package:path/path.dart' as p;
 
 class FileListTile extends ConsumerWidget {
   final String path;
-  final StateNotifierProvider<FileExplorerNotifier, FileExplorerState> providerInstance;
+  final StateNotifierProvider<FileExplorerNotifier, FileExplorerState>
+  providerInstance;
   final bool isDrag;
 
-  const FileListTile({super.key, required this.path, required this.providerInstance,this.isDrag = false});
+  const FileListTile({
+    super.key,
+    required this.path,
+    required this.providerInstance,
+    this.isDrag = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,18 +30,20 @@ class FileListTile extends ConsumerWidget {
     final iconData = MediaUtils.getIconForMedia(
       MediaUtils.getMediaTypeFromExtension(path),
     );
-    final metadata = ref.watch(folderMetadataProvider(path));
 
     return ListTile(
       key: ValueKey(path),
       title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: metadata.when(
-        data: (data) => Text(
-          "${data['Size']} | ${data['Modified']}",
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-        ),
-        loading: () => const Text("Loading...", style: TextStyle(fontSize: 12)),
-        error: (_, __) => const Text("Error", style: TextStyle(fontSize: 12)),
+      subtitle: FutureBuilder<Map<String, dynamic>>(
+        future: getMetadata(path),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Text("Loading...");
+          final data = snapshot.data!;
+          return Text(
+            "${data['Size']} | ${data['Modified']}",
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          );
+        },
       ),
       leading: FutureBuilder<Uint8List?>(
         future: ThumbnailService.getThumbnail(path),
@@ -44,7 +51,12 @@ class FileListTile extends ConsumerWidget {
           if (snapshot.hasData && snapshot.data != null) {
             return ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.memory(snapshot.data!, width: 40, height: 40, fit: BoxFit.cover),
+              child: Image.memory(
+                snapshot.data!,
+                width: 40,
+                height: 40,
+                fit: BoxFit.cover,
+              ),
             );
           } else {
             return CircleAvatar(child: Icon(iconData));
@@ -61,7 +73,7 @@ class FileListTile extends ConsumerWidget {
         }
       },
       onLongPress: () {
-        if(isDrag == false){
+        if (isDrag == false) {
           ref.read(selectionProvider.notifier).toggleSelection(path);
         }
       },
@@ -85,7 +97,9 @@ class FileListTile extends ConsumerWidget {
             context: context,
             builder: (context) => BottomSheetForSingleFileOperation(
               path: path,
-              loadAgain: ref.read(providerInstance.notifier).loadAllContentOfPath,
+              loadAgain: ref
+                  .read(providerInstance.notifier)
+                  .loadAllContentOfPath,
             ),
           );
         },
