@@ -65,7 +65,14 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
               ? const SizedBox.shrink()
               : IconButton(
             onPressed: () {
-              notifier.goBack(context);
+              final selection = ref.read(selectionProvider);
+              final selectionNotifier = ref.read(selectionProvider.notifier);
+
+              if (selection.isSelectionMode) {
+                selectionNotifier.clearSelection();
+              } else {
+                notifier.goBack(context);
+              }
             },
             icon: const Icon(Icons.arrow_back),
           ),
