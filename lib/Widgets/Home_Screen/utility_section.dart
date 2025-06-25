@@ -3,14 +3,35 @@ import 'package:file_manager/Screens/recently_deleted_screen.dart';
 import 'package:flutter/material.dart';
 
 class UtilitySections extends StatelessWidget {
-  const UtilitySections({super.key});
+  const UtilitySections({
+    super.key,
+    required this.requestPermissions,
+    required this.getStoragePath,
+  });
+
+  final Future<bool> Function() requestPermissions;
+  final Future<void> Function() getStoragePath;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         GestureDetector(
-          onTap: () {
+          onTap: () async {
+            final isGranted = await requestPermissions();
+            if (!isGranted) {
+              ScaffoldMessenger.of(context).clearSnackBars();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Please grant all permissions to continue.',
+                  ),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+              return;
+            }
+            await getStoragePath();
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => RecentAddedScreen()),
@@ -38,7 +59,21 @@ class UtilitySections extends StatelessWidget {
         ),
 
         GestureDetector(
-          onTap: () {
+          onTap: () async {
+            final isGranted = await requestPermissions();
+            if (!isGranted) {
+              ScaffoldMessenger.of(context).clearSnackBars();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Please grant all permissions to continue.',
+                  ),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+              return;
+            }
+            await getStoragePath();
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => RecentlyDeletedScreen()),

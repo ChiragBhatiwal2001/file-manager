@@ -20,6 +20,7 @@ class _SortDialogState extends State<SortDialog> {
   late String _sortBy;
   late String _sortOrder;
   bool _applyToCurrentPath = false;
+  bool get _finalApplyToCurrentPath => widget.showPathSpecificOption ? _applyToCurrentPath : true;
 
   @override
   void initState() {
@@ -58,6 +59,20 @@ class _SortDialogState extends State<SortDialog> {
             value: "type",
             groupValue: _sortBy,
             onChanged: (val) => setState(() => _sortBy = val as String),
+          ),
+          if (widget.showPathSpecificOption)
+          RadioListTile(
+            title: const Text("Manual Drag"),
+            value: "drag",
+            groupValue: _sortBy,
+            onChanged: (val) {
+              setState(() => _sortBy = val as String);
+              Navigator.pop(context, {
+                "sortBy": "drag",
+                "sortOrder": "drag",
+                "applyToCurrentPath": _finalApplyToCurrentPath,
+              });
+            },
           ),
           if (widget.showPathSpecificOption)
             SwitchListTile(

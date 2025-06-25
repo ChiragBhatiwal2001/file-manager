@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:file_manager/Services/thumbnail_service.dart';
 import 'package:file_manager/Utils/MediaUtils.dart';
 import 'package:flutter/material.dart';
 
@@ -31,7 +33,24 @@ class HeaderForSingleFileOperation extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           child: Row(
             children: [
-              CircleAvatar(radius: 28, child: Icon(iconData, size: 32)),
+              FutureBuilder<Uint8List?>(
+                future: ThumbnailService.getThumbnail(path),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData && snapshot.data != null) {
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.memory(
+                        snapshot.data!,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                      ),
+                    );
+                  } else {
+                    return CircleAvatar(child: Icon(iconData));
+                  }
+                },
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(

@@ -6,7 +6,7 @@ class FileExplorerState {
   final List<FileSystemEntity> files;
   final bool isLoading;
   final String sortValue;
-  final Map<String, DateTime?>? lastModifiedMap;
+
 
   FileExplorerState({
     required this.currentPath,
@@ -14,7 +14,7 @@ class FileExplorerState {
     required this.files,
     required this.isLoading,
     required this.sortValue,
-    required this.lastModifiedMap,
+
   });
 
   FileExplorerState copyWith({
@@ -31,7 +31,6 @@ class FileExplorerState {
       files: files ?? this.files,
       isLoading: isLoading ?? this.isLoading,
       sortValue: sortValue ?? this.sortValue,
-      lastModifiedMap: lastModifiedMap ?? this.lastModifiedMap,
     );
   }
 }

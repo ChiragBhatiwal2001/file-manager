@@ -1,5 +1,7 @@
 import 'package:file_manager/Helpers/add_folder_dialog.dart';
 import 'package:file_manager/Providers/file_explorer_notifier.dart';
+import 'package:file_manager/Providers/file_explorer_state_model.dart';
+import 'package:file_manager/Providers/manual_drag_mode_notifier.dart';
 import 'package:file_manager/Providers/selction_notifier.dart';
 import 'package:file_manager/Providers/view_toggle_notifier.dart';
 import 'package:file_manager/Utils/constant.dart';
@@ -12,9 +14,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 class FileExplorerAppBar extends ConsumerStatefulWidget {
-  const FileExplorerAppBar({super.key, this.initialPath});
+  final StateNotifierProvider<FileExplorerNotifier, FileExplorerState>
+  providerInstance;
+  final String currentPath;
 
-  final String? initialPath;
+  const FileExplorerAppBar({
+    super.key,
+    required this.providerInstance,
+    required this.currentPath,
+  });
 
   @override
   ConsumerState<FileExplorerAppBar> createState() {
@@ -23,14 +31,12 @@ class FileExplorerAppBar extends ConsumerStatefulWidget {
 }
 
 class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
-
   @override
   Widget build(BuildContext context) {
     final fileViewMode = ref.watch(fileViewModeProvider);
-    final currentPath = ref.watch(currentPathProvider);
-
-    final currentState = ref.watch(fileExplorerProvider(currentPath));
-    final notifier = ref.read(fileExplorerProvider(currentPath).notifier);
+    final isDragMode = ref.watch(manualDragModeProvider);
+    final currentState = ref.watch(fileExplorerProvider);
+    final notifier = ref.read(fileExplorerProvider.notifier);
 
     final allCurrentPaths = [
       ...currentState.folders.map((e) => e.path),
@@ -39,15 +45,15 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
 
     final selectionState = ref.watch(selectionProvider);
 
-    final String headingPath = currentPath == Constant.internalPath
+    String headingPath = currentState.currentPath == Constant.internalPath
         ? "All Files"
-        : p.basename(currentPath);
+        : p.basename(currentState.currentPath);
 
     void showAddFolderDialog() {
       addFolderDialog(
         context: context,
-        parentPath: currentPath,
-        onSuccess: () => notifier.loadAllContentOfPath(currentPath),
+        parentPath: widget.currentPath,
+        onSuccess: () => notifier.loadAllContentOfPath(widget.currentPath),
       );
     }
 
@@ -55,8 +61,12 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
       mainAxisSize: MainAxisSize.min,
       children: [
         AppBar(
-          leading: IconButton(
-            onPressed: () => notifier.goBack(context, ref),
+          leading:isDragMode
+              ? const SizedBox.shrink()
+              : IconButton(
+            onPressed: () {
+              notifier.goBack(context);
+            },
             icon: const Icon(Icons.arrow_back),
           ),
           titleSpacing: 0,
@@ -65,62 +75,64 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           elevation: 2,
-          actions: selectionState.isSelectionMode
+          actions: isDragMode
+              ? null
+              : selectionState.isSelectionMode
               ? [
-            SelectionActionsWidget(
-              onPostAction: () =>
-                  notifier.loadAllContentOfPath(currentPath),
-              allCurrentPaths: allCurrentPaths,
-              enableShare: true,
-            )
-          ]
+                  SelectionActionsWidget(
+                    onPostAction: () =>
+                        notifier.loadAllContentOfPath(widget.currentPath),
+                    allCurrentPaths: allCurrentPaths,
+                    enableShare: true,
+                  ),
+                ]
               : [
-            IconButton(
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  useSafeArea: true,
-                  isScrollControlled: true,
-                  builder: (context) =>
-                      SearchBottomSheet(Constant.internalPath!),
-                );
-              },
-              icon: const Icon(Icons.search),
-            ),
-            SettingPopupMenuWidget(
-              popupList: [
-                "Create Folder",
-                "Sorting",
-                fileViewMode == "List View" ? "Grid View" : "List View",
-              ],
-              onViewModeChanged: (mode) {
-                ref.read(fileViewModeProvider.notifier).setMode(mode);
-              },
-              currentPath: currentPath,
-              currentSortValue:
-              ref.watch(fileExplorerProvider(currentPath)).sortValue,
-              setSortValue: (sortValue, {forCurrentPath = false}) {
-                return ref
-                    .read(fileExplorerProvider(currentPath).notifier)
-                    .setSortValue(
-                  sortValue,
-                  forCurrentPath: forCurrentPath,
-                );
-              },
-              showAddFolderDialog: showAddFolderDialog,
-              showPathSpecificOption: true,
-            ),
-          ],
+                  IconButton(
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        useSafeArea: true,
+                        isScrollControlled: true,
+                        builder: (context) =>
+                            SearchBottomSheet(Constant.internalPath!),
+                      );
+                    },
+                    icon: const Icon(Icons.search),
+                  ),
+                  SettingPopupMenuWidget(
+                    popupList: [
+                      "Create Folder",
+                      "Sorting",
+                      fileViewMode == "List View" ? "Grid View" : "List View",
+                    ],
+                    onViewModeChanged: (mode) {
+                      ref.read(fileViewModeProvider.notifier).setMode(mode);
+                    },
+                    currentPath: currentState.currentPath,
+                    currentSortValue: ref.watch(fileExplorerProvider).sortValue,
+                    setSortValue: (sortValue, {forCurrentPath = false}) {
+                      return ref
+                          .read(fileExplorerProvider.notifier)
+                          .setSortValue(
+                            sortValue,
+                            forCurrentPath: forCurrentPath,
+                          );
+                    },
+                    showAddFolderDialog: showAddFolderDialog,
+                    showPathSpecificOption: true,
+                  ),
+                ],
         ),
-        Container(
-          width: double.infinity,
-          color: Theme.of(context).colorScheme.surface,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: BreadcrumbWidget(
-            path: currentPath,
-            loadContent: notifier.loadAllContentOfPath,
+        if (!isDragMode)
+          Container(
+            width: double.infinity,
+            color: Theme.of(context).colorScheme.surface,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: BreadcrumbWidget(
+              path: currentState.currentPath,
+              loadContent: notifier.loadAllContentOfPath,
+            ),
           ),
-        ),
       ],
     );
   }

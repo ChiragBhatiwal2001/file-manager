@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
-enum MediaType { image, video, audio, document, apk, other }
+enum MediaType { image, video, audio, document, apk,archive, other }
 
 class MediaUtils {
   static const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
@@ -11,6 +11,7 @@ class MediaUtils {
     '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt'
   ];
   static const apkExts = ['.apk'];
+  static const archiveExts = ['.zip', '.rar', '.7z', '.tar', '.gz'];
 
   static MediaType getMediaTypeFromExtension(String path) {
     final ext = p.extension(path).toLowerCase();
@@ -19,6 +20,7 @@ class MediaUtils {
     if (audioExts.contains(ext)) return MediaType.audio;
     if (documentExts.contains(ext)) return MediaType.document;
     if (apkExts.contains(ext)) return MediaType.apk;
+    if (archiveExts.contains(ext)) return MediaType.archive;
     return MediaType.other;
   }
 
@@ -34,6 +36,8 @@ class MediaUtils {
         return Icons.insert_drive_file;
       case MediaType.apk:
         return Icons.android;
+      case MediaType.archive:
+        return Icons.archive;
       default:
         return Icons.folder;
     }

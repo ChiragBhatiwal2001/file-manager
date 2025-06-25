@@ -78,17 +78,16 @@ Future<void> _showPasteSheet(
 }
 
 Future<void> _toggleFavorite(
-    BuildContext context,
-    WidgetRef ref,
-    String path,
-    bool isFavorite,
-    void Function(String path) loadAgain,
-    ) async {
+  BuildContext context,
+  WidgetRef ref,
+  String path,
+  bool isFavorite,
+  void Function(String path) loadAgain,
+) async {
   try {
-    await ref.read(favoritesProvider.notifier).toggleFavorite(
-      path,
-      FileSystemEntity.isDirectorySync(path),
-    );
+    await ref
+        .read(favoritesProvider.notifier)
+        .toggleFavorite(path, FileSystemEntity.isDirectorySync(path));
 
     if (!context.mounted) return;
 
@@ -116,7 +115,6 @@ Future<void> _toggleFavorite(
   }
 }
 
-
 Future<void> _handleDelete(
   BuildContext context,
   String path,
@@ -131,8 +129,9 @@ Future<void> _handleDelete(
           title: const Text("Do you really want to delete?"),
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(p.basename(path)),
+              Text("${p.basename(path)} will be deleted from this device."),
               const SizedBox(height: 12),
               CheckboxListTile(
                 title: const Text("Delete permanently"),
@@ -181,10 +180,10 @@ Future<void> _handleDelete(
 }
 
 Future<void> handleRename(
-    BuildContext context,
-    String path,
-    void Function(String) loadAgain,
-    ) async {
+  BuildContext context,
+  String path,
+  void Function(String) loadAgain,
+) async {
   try {
     await renameDialogBox(
       context: context,
@@ -200,4 +199,3 @@ Future<void> handleRename(
     await showErrorDialog(context, "Rename operation failed.");
   }
 }
-

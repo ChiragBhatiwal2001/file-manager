@@ -1,7 +1,10 @@
 import 'package:file_manager/Helpers/sorting_dialog.dart';
+import 'package:file_manager/Providers/file_explorer_notifier.dart';
+import 'package:file_manager/Providers/manual_drag_mode_notifier.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class SettingPopupMenuWidget extends StatelessWidget {
+class SettingPopupMenuWidget extends ConsumerWidget {
   final List<String> popupList;
   final VoidCallback? showAddFolderDialog;
   final void Function(String sortValue)? onSortChanged;
@@ -27,7 +30,7 @@ class SettingPopupMenuWidget extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return PopupMenuButton<String>(
       onSelected: (value) async {
         if (value == "Sorting") {
@@ -38,10 +41,15 @@ class SettingPopupMenuWidget extends StatelessWidget {
           String initialSortBy = "name";
           String initialSortOrder = "asc";
 
-          if (currentSortValue != null && currentSortValue!.contains("-")) {
-            final parts = currentSortValue!.split("-");
-            initialSortBy = parts[0];
-            initialSortOrder = parts[1];
+          if (currentSortValue != null) {
+            if (currentSortValue == "drag") {
+              initialSortBy = "drag";
+              initialSortOrder = "drag";
+            } else if (currentSortValue!.contains("-")) {
+              final parts = currentSortValue!.split("-");
+              initialSortBy = parts[0];
+              initialSortOrder = parts[1];
+            }
           }
 
           await showDialog(
@@ -53,13 +61,46 @@ class SettingPopupMenuWidget extends StatelessWidget {
             ),
           ).then((result) async {
             if (result == null) return;
-            final combinedSort = '${result["sortBy"]}-${result["sortOrder"]}';
-            final bool forCurrentPath = result["applyToCurrentPath"] ?? true;
-            if (setSortValue != null) {
-              await setSortValue!(combinedSort, forCurrentPath: forCurrentPath);
-            }
-            if (onSortChanged != null) {
-              onSortChanged!(combinedSort);
+
+            final sortOrder = result["sortOrder"];
+            final sortBy = result["sortBy"];
+            final forCurrentPath = result["applyToCurrentPath"] ?? true;
+
+            if (sortOrder == "drag") {
+              if (!showPathSpecificOption) {
+                return;
+              }
+              final forCurrentPath = result["applyToCurrentPath"] ?? true;
+
+              if (setSortValue != null) {
+                await setSortValue!("drag", forCurrentPath: forCurrentPath);
+              } else {
+                await ref
+                    .read(fileExplorerProvider.notifier)
+                    .setSortValue("drag", forCurrentPath: forCurrentPath);
+              }
+              if (forCurrentPath) {
+                ref.read(manualDragModeProvider.notifier).state = true;
+              } else {
+                ref.read(manualDragModeProvider.notifier).state = false;
+              }
+
+              if (onSortChanged != null) {
+                onSortChanged!("drag");
+              }
+
+              return;
+            } else {
+              final combinedSort = '$sortBy-$sortOrder';
+              if (setSortValue != null) {
+                await setSortValue!(
+                  combinedSort,
+                  forCurrentPath: forCurrentPath,
+                );
+              }
+              if (onSortChanged != null) {
+                onSortChanged!(combinedSort);
+              }
             }
           });
         } else if (value == "Create Folder") {

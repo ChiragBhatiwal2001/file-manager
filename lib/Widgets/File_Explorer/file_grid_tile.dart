@@ -1,5 +1,3 @@
-// file_grid_tile.dart
-
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -14,7 +12,7 @@ import 'package:file_manager/Services/get_meta_data.dart';
 import 'package:file_manager/Utils/MediaUtils.dart';
 import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/bottom_sheet_single_file_operations.dart';
 
-class FileGridTile extends ConsumerWidget {
+class FileGridTile extends ConsumerStatefulWidget {
   final FileSystemEntity entity;
   final bool isFolder;
   final FileExplorerNotifier notifier;
@@ -27,21 +25,76 @@ class FileGridTile extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final path = entity.path;
+  ConsumerState<FileGridTile> createState() => _FileGridTileState();
+}
+
+class _FileGridTileState extends ConsumerState<FileGridTile> {
+  Uint8List? _thumbnail;
+  Map<String, dynamic>? _metadata;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThumbnailAndMetadata();
+  }
+
+  void _loadThumbnailAndMetadata() async {
+    final path = widget.entity.path;
+    if (!widget.isFolder) {
+      final thumb = await ThumbnailService.getThumbnail(path);
+      if (mounted) {
+        setState(() {
+          _thumbnail = thumb;
+        });
+      }
+    }
+
+    final meta = await getMetadata(path);
+    if (mounted) {
+      setState(() {
+        _metadata = meta;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final path = widget.entity.path;
     final name = p.basename(path);
 
-    final selectionState = ref.watch(selectionProvider);
+    final selection = ref.watch(selectionProvider);
+    final isSelected = selection.selectedPaths.contains(path);
+    final isSelectionMode = selection.isSelectionMode;
     final selectionNotifier = ref.read(selectionProvider.notifier);
-    final isSelected = selectionState.selectedPaths.contains(path);
-    final isSelectionMode = selectionState.isSelectionMode;
+
+    final Widget thumbnailWidget = widget.isFolder
+        ? const Icon(Icons.folder, size: 64)
+        : _thumbnail != null
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.memory(
+              _thumbnail!,
+              width: 64,
+              height: 64,
+              fit: BoxFit.cover,
+            ),
+          )
+        : Icon(
+            MediaUtils.getIconForMedia(
+              MediaUtils.getMediaTypeFromExtension(path),
+            ),
+            size: 64,
+            color: Colors.blueGrey,
+          );
 
     return GestureDetector(
       onTap: () {
         if (isSelectionMode) {
           selectionNotifier.toggleSelection(path);
         } else {
-          isFolder ? notifier.loadAllContentOfPath(path) : OpenFilex.open(path);
+          widget.isFolder
+              ? widget.notifier.loadAllContentOfPath(path)
+              : OpenFilex.open(path);
         }
       },
       onLongPress: () => selectionNotifier.toggleSelection(path),
@@ -57,43 +110,19 @@ class FileGridTile extends ConsumerWidget {
             Expanded(
               flex: 6,
               child: Center(
-                child: FutureBuilder<Uint8List?>(
-                  future: !isFolder ? ThumbnailService.getThumbnail(path) : null,
-                  builder: (context, snapshot) {
-                    Widget thumbnail;
-                    if (isFolder) {
-                      thumbnail = const Icon(Icons.folder, size: 64);
-                    } else if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
-                      thumbnail = ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.memory(
-                          snapshot.data!,
-                          width: 64,
-                          height: 64,
-                          fit: BoxFit.cover,
-                        ),
-                      );
-                    } else {
-                      final icon = MediaUtils.getIconForMedia(
-                        MediaUtils.getMediaTypeFromExtension(path),
-                      );
-                      thumbnail = Icon(icon, size: 64, color: Colors.blueGrey);
-                    }
-
-                    return Stack(
-                      alignment: Alignment.topRight,
-                      children: [
-                        Align(alignment: Alignment.center, child: thumbnail),
-                        if (isSelectionMode)
-                          Checkbox(
-                            value: isSelected,
-                            onChanged: (_) => selectionNotifier.toggleSelection(path),
-                            shape: const CircleBorder(),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                      ],
-                    );
-                  },
+                child: Stack(
+                  alignment: Alignment.topRight,
+                  children: [
+                    Align(alignment: Alignment.center, child: thumbnailWidget),
+                    if (isSelectionMode)
+                      Checkbox(
+                        value: isSelected,
+                        onChanged: (_) =>
+                            selectionNotifier.toggleSelection(path),
+                        shape: const CircleBorder(),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -112,33 +141,22 @@ class FileGridTile extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
-                    child: FutureBuilder<Map<String, dynamic>>(
-                      future: getMetadata(path),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Text(
-                            "Loading...",
-                            style: TextStyle(fontSize: 12),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          );
-                        } else if (snapshot.hasData) {
-                          final size = snapshot.data!['Size'];
-                          final modified = snapshot.data!['Modified'];
-                          return Text(
-                            '$size • $modified',
+                    child: _metadata != null
+                        ? Text(
+                            '${_metadata!['Size']} • ${_metadata!['Modified']}',
                             style: const TextStyle(
                               fontSize: 10,
                               color: Colors.grey,
                             ),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
-                          );
-                        } else {
-                          return const SizedBox.shrink();
-                        }
-                      },
-                    ),
+                          )
+                        : const Text(
+                            "Loading...",
+                            style: TextStyle(fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
                   ),
                   if (!isSelectionMode)
                     IconButton(
@@ -150,7 +168,7 @@ class FileGridTile extends ConsumerWidget {
                           context: context,
                           builder: (_) => BottomSheetForSingleFileOperation(
                             path: path,
-                            loadAgain: notifier.loadAllContentOfPath,
+                            loadAgain: widget.notifier.loadAllContentOfPath,
                           ),
                         );
                       },

@@ -8,10 +8,9 @@ import 'package:file_manager/Providers/selction_notifier.dart';
 import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/bottom_sheet_single_file_operations.dart';
 import 'package:path/path.dart' as p;
 
-class FolderListTile extends ConsumerWidget {
+class FolderListTile extends ConsumerStatefulWidget {
   final String path;
-  final StateNotifierProvider<FileExplorerNotifier, FileExplorerState>
-  providerInstance;
+  final StateNotifierProvider<FileExplorerNotifier, FileExplorerState> providerInstance;
   final bool isDrag;
 
   const FolderListTile({
@@ -22,58 +21,76 @@ class FolderListTile extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isHidden = ref.watch(hiddenPathsProvider).hiddenPaths.contains(path);
-    final folderName = p.basename(path);
-    final notifier = ref.read(providerInstance.notifier);
+  ConsumerState<FolderListTile> createState() => _FolderListTileState();
+}
+
+class _FolderListTileState extends ConsumerState<FolderListTile> {
+  Map<String, dynamic>? _metadata;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMetadata();
+  }
+
+  void _loadMetadata() async {
+    final meta = await getMetadata(widget.path);
+    if (mounted) {
+      setState(() {
+        _metadata = meta;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isHidden = ref.watch(hiddenPathsProvider).hiddenPaths.contains(widget.path);
+    final folderName = p.basename(widget.path);
+    final selection = ref.watch(selectionProvider);
+    final notifier = ref.read(widget.providerInstance.notifier);
 
     return ListTile(
-      key: ValueKey(path),
+      key: ValueKey(widget.path),
       title: Text(
         folderName,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(color: isHidden ? Colors.blueGrey : null),
       ),
-      subtitle: FutureBuilder<Map<String, dynamic>>(
-        future: getMetadata(path),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Text("Loading...");
-          final data = snapshot.data!;
-          return Text(
-            "${data['Size']} | ${data['Modified']}",
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-          );
-        },
-      ),
-      leading: CircleAvatar(
+      subtitle: _metadata != null
+          ? Text(
+        "${_metadata!['Size']} | ${_metadata!['Modified']}",
+        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+      )
+          : const Text("Loading..."),
+      leading: widget.isDrag
+          ? null
+          : CircleAvatar(
         child: Icon(Icons.folder, color: isHidden ? Colors.grey : null),
       ),
-      trailing: _buildTrailing(context, ref),
+      trailing: _buildTrailing(context, selection),
       onTap: () {
-        final selection = ref.read(selectionProvider);
         if (selection.isSelectionMode) {
-          ref.read(selectionProvider.notifier).toggleSelection(path);
+          ref.read(selectionProvider.notifier).toggleSelection(widget.path);
         } else {
-          notifier.loadAllContentOfPath(path);
+          notifier.loadAllContentOfPath(widget.path);
         }
       },
       onLongPress: () {
-        if (isDrag == false) {
-          ref.read(selectionProvider.notifier).toggleSelection(path);
+        if (!widget.isDrag) {
+          ref.read(selectionProvider.notifier).toggleSelection(widget.path);
         }
       },
     );
   }
 
-  Widget _buildTrailing(BuildContext context, WidgetRef ref) {
-    final selection = ref.watch(selectionProvider);
-    final notifier = ref.read(selectionProvider.notifier);
-
+  Widget _buildTrailing(BuildContext context, SelectionState selection) {
     if (selection.isSelectionMode) {
       return Checkbox(
-        value: selection.selectedPaths.contains(path),
-        onChanged: (_) => notifier.toggleSelection(path),
+        value: selection.selectedPaths.contains(widget.path),
+        onChanged: (_) {
+          ref.read(selectionProvider.notifier).toggleSelection(widget.path);
+        },
       );
     } else {
       return IconButton(
@@ -82,9 +99,9 @@ class FolderListTile extends ConsumerWidget {
           showModalBottomSheet(
             context: context,
             builder: (context) => BottomSheetForSingleFileOperation(
-              path: path,
+              path: widget.path,
               loadAgain: ref
-                  .read(providerInstance.notifier)
+                  .read(widget.providerInstance.notifier)
                   .loadAllContentOfPath,
             ),
           );

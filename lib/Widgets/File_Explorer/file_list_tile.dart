@@ -11,10 +11,9 @@ import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/botto
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 
-class FileListTile extends ConsumerWidget {
+class FileListTile extends ConsumerStatefulWidget {
   final String path;
-  final StateNotifierProvider<FileExplorerNotifier, FileExplorerState>
-  providerInstance;
+  final StateNotifierProvider<FileExplorerNotifier, FileExplorerState> providerInstance;
   final bool isDrag;
 
   const FileListTile({
@@ -25,69 +24,92 @@ class FileListTile extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final fileName = p.basename(path);
+  ConsumerState<FileListTile> createState() => _FileListTileState();
+}
+
+class _FileListTileState extends ConsumerState<FileListTile> {
+  Uint8List? _thumbnail;
+  Map<String, dynamic>? _metadata;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThumbnail();
+    _loadMetadata();
+  }
+
+  void _loadThumbnail() async {
+    final thumb = await ThumbnailService.getThumbnail(widget.path);
+    if (mounted) {
+      setState(() {
+        _thumbnail = thumb;
+      });
+    }
+  }
+
+  void _loadMetadata() async {
+    final meta = await getMetadata(widget.path);
+    if (mounted) {
+      setState(() {
+        _metadata = meta;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fileName = p.basename(widget.path);
     final iconData = MediaUtils.getIconForMedia(
-      MediaUtils.getMediaTypeFromExtension(path),
+      MediaUtils.getMediaTypeFromExtension(widget.path),
     );
 
+    final selection = ref.watch(selectionProvider);
+
     return ListTile(
-      key: ValueKey(path),
+      key: ValueKey(widget.path),
       title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: FutureBuilder<Map<String, dynamic>>(
-        future: getMetadata(path),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Text("Loading...");
-          final data = snapshot.data!;
-          return Text(
-            "${data['Size']} | ${data['Modified']}",
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-          );
-        },
-      ),
-      leading: FutureBuilder<Uint8List?>(
-        future: ThumbnailService.getThumbnail(path),
-        builder: (context, snapshot) {
-          if (snapshot.hasData && snapshot.data != null) {
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.memory(
-                snapshot.data!,
-                width: 40,
-                height: 40,
-                fit: BoxFit.cover,
-              ),
-            );
-          } else {
-            return CircleAvatar(child: Icon(iconData));
-          }
-        },
-      ),
-      trailing: _buildTrailing(context, ref),
+      subtitle: _metadata != null
+          ? Text(
+        "${_metadata!['Size']} | ${_metadata!['Modified']}",
+        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+      )
+          : const Text("Loading..."),
+      leading: widget.isDrag
+          ? null
+          : _thumbnail != null
+          ? ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.memory(
+          _thumbnail!,
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+        ),
+      )
+          : CircleAvatar(child: Icon(iconData)),
+      trailing: _buildTrailing(context, selection),
       onTap: () {
-        final selection = ref.read(selectionProvider);
         if (selection.isSelectionMode) {
-          ref.read(selectionProvider.notifier).toggleSelection(path);
+          ref.read(selectionProvider.notifier).toggleSelection(widget.path);
         } else {
-          OpenFilex.open(path);
+          OpenFilex.open(widget.path);
         }
       },
       onLongPress: () {
-        if (isDrag == false) {
-          ref.read(selectionProvider.notifier).toggleSelection(path);
+        if (!widget.isDrag) {
+          ref.read(selectionProvider.notifier).toggleSelection(widget.path);
         }
       },
     );
   }
 
-  Widget _buildTrailing(BuildContext context, WidgetRef ref) {
-    final selection = ref.watch(selectionProvider);
-    final notifier = ref.read(selectionProvider.notifier);
-
+  Widget _buildTrailing(BuildContext context, SelectionState selection) {
     if (selection.isSelectionMode) {
       return Checkbox(
-        value: selection.selectedPaths.contains(path),
-        onChanged: (_) => notifier.toggleSelection(path),
+        value: selection.selectedPaths.contains(widget.path),
+        onChanged: (_) {
+          ref.read(selectionProvider.notifier).toggleSelection(widget.path);
+        },
       );
     } else {
       return IconButton(
@@ -96,9 +118,9 @@ class FileListTile extends ConsumerWidget {
           showModalBottomSheet(
             context: context,
             builder: (context) => BottomSheetForSingleFileOperation(
-              path: path,
+              path: widget.path,
               loadAgain: ref
-                  .read(providerInstance.notifier)
+                  .read(widget.providerInstance.notifier)
                   .loadAllContentOfPath,
             ),
           );

@@ -1,5 +1,4 @@
-import 'dart:math';
-
+import 'package:file_manager/Providers/manual_drag_mode_notifier.dart';
 import 'package:file_manager/Providers/selction_notifier.dart';
 import 'package:file_manager/Providers/view_toggle_notifier.dart';
 import 'package:file_manager/Utils/constant.dart';
@@ -19,33 +18,26 @@ class FileExplorerScreen extends ConsumerStatefulWidget {
   ConsumerState<FileExplorerScreen> createState() => _FileExplorerScreenState();
 }
 
-class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> with RouteAware {
-  late String _startingPath;
-
+class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> {
   @override
   void initState() {
     super.initState();
-    _startingPath = widget.initialPath ?? Constant.internalPath!;
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-
+    final initPath = widget.initialPath ?? Constant.internalPath!;
     Future.microtask(() {
-      ref.read(fileExplorerProvider(_startingPath).notifier).loadAllContentOfPath(_startingPath);
+      ref.read(currentPathProvider.notifier).state = initPath;
+      ref.read(fileExplorerProvider.notifier).loadAllContentOfPath(initPath);
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final currentPath = ref.watch(currentPathProvider);
-    final providerInstance = fileExplorerProvider(currentPath);
-    final explorerState = ref.watch(providerInstance);
-    final notifier = ref.read(providerInstance.notifier);
+    final explorerState = ref.watch(fileExplorerProvider);
+    final notifier = ref.read(fileExplorerProvider.notifier);
     final selectionState = ref.watch(selectionProvider);
     final selectionNotifier = ref.read(selectionProvider.notifier);
     final viewMode = ref.watch(fileViewModeProvider);
+    final isInDragMode = ref.watch(manualDragModeProvider);
 
     return PopScope(
       canPop: false,
@@ -54,27 +46,41 @@ class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> with Ro
           selectionNotifier.clearSelection();
           return;
         }
-
         if (!didPop && explorerState.currentPath != Constant.internalPath) {
           if (!mounted) return;
-          await notifier.goBack(context, ref); // pass ref to notifier!
-        } else if (!didPop && explorerState.currentPath == Constant.internalPath) {
+          await notifier.goBack(context);
+        } else if (!didPop &&
+            explorerState.currentPath == Constant.internalPath) {
           if (Navigator.of(context).canPop()) {
             Navigator.of(context).pop();
           }
         }
       },
-
       child: Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(104.0),
-          child: FileExplorerAppBar(initialPath: currentPath),
+          child: FileExplorerAppBar(
+            providerInstance: fileExplorerProvider,
+            currentPath: currentPath,
+          ),
         ),
         body: explorerState.isLoading
             ? const Center(child: CircularProgressIndicator())
             : viewMode == "List View"
-            ? FileExplorerBody(providerInstance: providerInstance)
-            : FileExplorerGridBody(providerInstance: providerInstance),
+            ? FileExplorerBody(providerInstance: fileExplorerProvider)
+            : FileExplorerGridBody(providerInstance: fileExplorerProvider),
+        floatingActionButton: isInDragMode
+            ? FloatingActionButton(
+                onPressed: () async {
+                  ref.read(manualDragModeProvider.notifier).state = false;
+                  await ref.read(fileExplorerProvider.notifier).loadAllContentOfPath(
+                    ref.read(currentPathProvider),
+                  );
+
+                },
+                child: Icon(Icons.clear),
+              )
+            : null,
       ),
     );
   }

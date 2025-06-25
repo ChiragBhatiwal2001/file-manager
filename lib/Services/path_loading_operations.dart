@@ -4,8 +4,8 @@ import 'package:file_manager/Utils/restricted_files.dart';
 import 'package:flutter/material.dart';
 
 class DirectoryContent {
-  final List<Directory> folders;
-  final List<File> files;
+  List<Directory> folders;
+  List<File> files;
 
   DirectoryContent(this.folders, this.files);
 }
@@ -16,8 +16,6 @@ class PathLoadingOperations {
   static Future<DirectoryContent> loadContent(String path) async {
     try {
       final data = await Directory(path).list().toList();
-      // final folderData = data.whereType<Directory>().toList();
-      // final fileData = data.whereType<File>().toList();
       final visibleEntities = FileFilterUtils.filterVisible(data);
       final folderData = visibleEntities.whereType<Directory>().toList();
       final fileData = visibleEntities.whereType<File>().toList();
@@ -25,10 +23,6 @@ class PathLoadingOperations {
     } catch (e) {
       return DirectoryContent([], []);
     }
-  }
-
-  static Future<DirectoryContent> loadContentIsolate(String path) async {
-    return await loadContent(path);
   }
 
   static String? goBackToParentPath(String currentPath) {

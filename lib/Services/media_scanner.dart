@@ -49,6 +49,7 @@ class MediaScanner {
       MediaType.audio: [],
       MediaType.document: [],
       MediaType.apk: [],
+      MediaType.archive: [],
       MediaType.other: [],
     };
 

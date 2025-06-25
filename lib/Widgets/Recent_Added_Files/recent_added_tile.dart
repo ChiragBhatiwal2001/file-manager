@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:file_manager/Services/get_meta_data.dart';
 import 'package:file_manager/Utils/MediaUtils.dart';
@@ -32,10 +33,14 @@ class _RecentAddedTileState extends ConsumerState<RecentAddedTile> {
   Uint8List? _thumbnail;
   bool _isLoadingThumb = true;
 
+  Map<String, dynamic>? _metadata;
+  bool _isLoadingMeta = true;
+
   @override
   void initState() {
     super.initState();
     _loadThumb();
+    _loadMetadata();
   }
 
   void _loadThumb() async {
@@ -44,6 +49,16 @@ class _RecentAddedTileState extends ConsumerState<RecentAddedTile> {
       setState(() {
         _thumbnail = result;
         _isLoadingThumb = false;
+      });
+    }
+  }
+
+  void _loadMetadata() async {
+    final result = await getMetadata(widget.file.path);
+    if (mounted) {
+      setState(() {
+        _metadata = result;
+        _isLoadingMeta = false;
       });
     }
   }
@@ -57,7 +72,8 @@ class _RecentAddedTileState extends ConsumerState<RecentAddedTile> {
     final isSelected = selectionState.selectedPaths.contains(file.path);
     final isSelectionMode = selectionState.isSelectionMode;
 
-    return widget.isGrid? GestureDetector(
+    return widget.isGrid
+        ? GestureDetector(
       onTap: () {
         if (isSelectionMode) {
           selectionNotifier.toggleSelection(widget.file.path);
@@ -113,7 +129,8 @@ class _RecentAddedTileState extends ConsumerState<RecentAddedTile> {
                       fileName,
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      style:
+                      const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                   isSelectionMode
@@ -140,32 +157,21 @@ class _RecentAddedTileState extends ConsumerState<RecentAddedTile> {
                   ),
                 ],
               ),
-              FutureBuilder<Map<String, dynamic>>(
-                future: getMetadata(widget.file.path),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Text("Loading...", style: TextStyle(fontSize: 12));
-                  } else if (snapshot.hasData) {
-                    final size = snapshot.data!['Size'];
-                    final modified = snapshot.data!['Modified'];
-                    return Text(
-                      '$size | $modified',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    );
-                  } else {
-                    return const SizedBox.shrink();
-                  }
-                },
-              )
+              Text(
+                _isLoadingMeta
+                    ? "Loading..."
+                    : '${_metadata?['Size'] ?? ''} | ${_metadata?['Modified'] ?? ''}',
+                style:
+                const TextStyle(fontSize: 12, color: Colors.grey),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ),
       ),
-    ) :
-
-      ListTile(
+    )
+        : ListTile(
       leading: _isLoadingThumb
           ? const CircularProgressIndicator(strokeWidth: 2)
           : _thumbnail != null
@@ -182,34 +188,33 @@ class _RecentAddedTileState extends ConsumerState<RecentAddedTile> {
         child: Icon(MediaUtils.getIconForMedia(file.type)),
       ),
       title: Text(fileName),
-        subtitle: FutureBuilder<Map<String, dynamic>>(
-          future: getMetadata(widget.file.path), // or folderPath
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) return const Text("Loading...");
-            final data = snapshot.data!;
-            return Text(
-              "${data['Size']} | ${data['Modified']}",
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            );
-          },
-        ),
+      subtitle: Text(
+        _isLoadingMeta
+            ? "Loading..."
+            : '${_metadata?['Size'] ?? ''} | ${_metadata?['Modified'] ?? ''}',
+        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
       trailing: isSelectionMode
           ? Checkbox(
         value: isSelected,
-        onChanged: (_) => selectionNotifier.toggleSelection(file.path),
+        onChanged: (_) =>
+            selectionNotifier.toggleSelection(file.path),
       )
           : IconButton(
         icon: const Icon(Icons.more_vert),
         onPressed: () {
           showModalBottomSheet(
             context: context,
-            builder: (context) => BottomSheetForSingleFileOperation(
-              path: file.path,
-              loadAgain: AsyncValue.data,
-            ),
+            builder: (context) =>
+                BottomSheetForSingleFileOperation(
+                  path: file.path,
+                  loadAgain: widget.onRefresh,
+                ),
           ).then((_) {
-              widget.onRefresh();
-              widget.onOperationDone?.call();
+            widget.onRefresh();
+            widget.onOperationDone?.call();
           });
         },
       ),

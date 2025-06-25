@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:file_manager/Providers/file_explorer_state_model.dart';
+import 'package:file_manager/Services/drag_order_file_explorer.dart';
 import 'package:file_manager/Services/shared_preference.dart';
 import 'package:file_manager/Utils/constant.dart';
 import 'package:flutter/cupertino.dart';
@@ -8,12 +7,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_manager/Services/path_loading_operations.dart';
 import 'package:file_manager/Services/sorting_operation.dart';
-
 import 'package:file_manager/Services/sort_preference_db.dart';
-import 'package:path/path.dart';
 
 class FileExplorerNotifier extends StateNotifier<FileExplorerState> {
-  FileExplorerNotifier(String initialPath)
+  FileExplorerNotifier(this.initialPath, this.ref)
     : super(
         FileExplorerState(
           currentPath: initialPath,
@@ -21,11 +18,13 @@ class FileExplorerNotifier extends StateNotifier<FileExplorerState> {
           files: [],
           isLoading: false,
           sortValue: "name-asc",
-          lastModifiedMap: {},
         ),
       ) {
     _init(initialPath);
   }
+
+  final String initialPath;
+  final Ref ref;
 
   Future<void> _init(String loadPath) async {
     await loadAllContentOfPath(loadPath);
@@ -33,43 +32,41 @@ class FileExplorerNotifier extends StateNotifier<FileExplorerState> {
 
   Future<void> loadAllContentOfPath(String path) async {
     if (!mounted) return;
+    ref.read(currentPathProvider.notifier).state = path;
     state = state.copyWith(isLoading: true);
 
     final perPathSort = await SortPreferenceDB.getSortForPath(path);
     final globalSort = SharedPrefsService.instance.getString('sort-preference');
     final sortValue = perPathSort ?? globalSort ?? "name-asc";
 
-    final data = await compute(PathLoadingOperations.loadContentIsolate, path);
-    if (!mounted) return;
+    DirectoryContent data = await PathLoadingOperations.loadContent(path);
 
-    final sorting = SortingOperation(
-      filterItem: sortValue,
-      folderData: data.folders,
-      fileData: data.files,
-    );
-    sorting.sortFileAndFolder();
-
-    final lastModifiedMap = <String, DateTime?>{};
-    for (final entity in [...sorting.folderData, ...sorting.fileData]) {
-      try {
-        lastModifiedMap[entity.path] = await FileStat.stat(
-          entity.path,
-        ).then((s) => s.modified);
-      } catch (_) {
-        lastModifiedMap[entity.path] = null;
+    if (sortValue == "drag") {
+      final orderList = await DragOrderStore.getOrderForPath(path);
+      if (orderList != null) {
+        data.folders.sort((a, b) => orderList.indexOf(a.path).compareTo(orderList.indexOf(b.path)));
+        data.files.sort((a, b) => orderList.indexOf(a.path).compareTo(orderList.indexOf(b.path)));
       }
+    } else {
+      final sorting = SortingOperation(
+        filterItem: sortValue,
+        folderData: data.folders,
+        fileData: data.files,
+      );
+      sorting.sortFileAndFolder();
+      data.folders = sorting.folderData;
+      data.files = sorting.fileData;
     }
 
-    if (!mounted) return;
     state = state.copyWith(
       currentPath: path,
-      folders: sorting.folderData,
-      files: sorting.fileData,
-      lastModifiedMap: lastModifiedMap,
+      folders: data.folders,
+      files: data.files,
       isLoading: false,
       sortValue: sortValue,
     );
   }
+
 
   void clearState() {
     if (!mounted) return;
@@ -86,40 +83,36 @@ class FileExplorerNotifier extends StateNotifier<FileExplorerState> {
     String sortValue, {
     bool forCurrentPath = false,
   }) async {
-    if (!mounted) return;
-
     if (forCurrentPath) {
       await SortPreferenceDB.setSortForPath(state.currentPath, sortValue);
     } else {
       await SharedPrefsService.instance.setString('sort-preference', sortValue);
       await SortPreferenceDB.removeSortForPath(state.currentPath);
     }
-
-    if (!mounted) return;
     state = state.copyWith(sortValue: sortValue);
     await loadAllContentOfPath(state.currentPath);
   }
 
-  Future<void> goBack(BuildContext context, WidgetRef ref) async {
-    if (!mounted) return;
-
-    final newPath = PathLoadingOperations.goBackToParentPath(state.currentPath);
-    if (newPath == null) {
-      if (Navigator.of(context).canPop()) Navigator.pop(context);
+  Future<void> goBack(BuildContext context) async {
+    if (state.currentPath == Constant.internalPath) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
       return;
     }
-    ref.read(currentPathProvider.notifier).state = newPath;
 
-    await loadAllContentOfPath(newPath);
+    final newPath = PathLoadingOperations.goBackToParentPath(state.currentPath);
+    if (newPath != null) {
+      await loadAllContentOfPath(newPath);
+    }
   }
 }
 
 final fileExplorerProvider =
-    StateNotifierProvider.family<
-      FileExplorerNotifier,
-      FileExplorerState,
-      String?
-    >((ref, path) => FileExplorerNotifier(path ?? Constant.internalPath!));
+    StateNotifierProvider<FileExplorerNotifier, FileExplorerState>((ref) {
+      final initialPath = ref.watch(currentPathProvider);
+      return FileExplorerNotifier(initialPath, ref);
+    });
 
 final currentPathProvider = StateProvider<String>((ref) {
   return Constant.internalPath!;

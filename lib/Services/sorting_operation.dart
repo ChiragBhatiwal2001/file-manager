@@ -2,8 +2,8 @@ import 'dart:io';
 
 class SortingOperation {
   final String filterItem;
-  List<FileSystemEntity> folderData;
-  List<FileSystemEntity> fileData;
+  List<Directory> folderData;
+  List<File> fileData;
 
   SortingOperation({
     required this.filterItem,

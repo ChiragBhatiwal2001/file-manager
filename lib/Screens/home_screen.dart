@@ -185,7 +185,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               const SizedBox(height: 18),
               // Section For Recycler Bin and Recently Added Files.
-              const UtilitySections(),
+              UtilitySections(
+                requestPermissions: _requestAllMediaPermissions,
+                getStoragePath: getStoragePath,
+              ),
               FavoritesSection(
                 requestPermissions: _requestAllMediaPermissions,
                 getStoragePath: getStoragePath,

@@ -54,7 +54,7 @@ class _BottomSheetForPasteOperationState
 
   Future<void> _loadContent(String path) async {
     setState(() => isLoading = true);
-    final data = await compute(PathLoadingOperations.loadContentIsolate, path);
+    final data = await compute(PathLoadingOperations.loadContent, path);
     setState(() {
       currentPath = path;
       folders = data.folders;
@@ -100,7 +100,6 @@ class _BottomSheetForPasteOperationState
     return null; // No conflict
   }
 
-
   Future<void> _handlePaste() async {
     if (_isPasting) return;
     setState(() => _isPasting = true);
@@ -135,7 +134,9 @@ class _BottomSheetForPasteOperationState
         context: context,
         builder: (_) => AlertDialog(
           title: const Text("Conflict Detected"),
-          content: Text("A file or folder named \"$conflictName\" already exists in this location."),
+          content: Text(
+            "A file or folder named \"$conflictName\" already exists in this location.",
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
