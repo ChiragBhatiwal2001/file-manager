@@ -7,6 +7,7 @@ import 'search_result_list.dart';
 
 class SearchBottomSheet extends StatefulWidget {
   final String internalStorage;
+
   const SearchBottomSheet(this.internalStorage, {super.key});
 
   @override
@@ -14,13 +15,21 @@ class SearchBottomSheet extends StatefulWidget {
 }
 
 class _SearchBottomSheetState extends State<SearchBottomSheet> {
-  final TextEditingController _searchController = TextEditingController();
+  late final FocusNode _searchFocusNode;
+  late final TextEditingController _searchController;
   bool hasSearched = false;
   List<FileSystemEntity> allResults = [];
   bool isLoading = false;
   int selectedCategory = 0;
 
-  final List<String> categories = ['All', 'Photos', 'Videos', 'Audio', 'Documents', 'APKs'];
+  final List<String> categories = [
+    'All',
+    'Photos',
+    'Videos',
+    'Audio',
+    'Documents',
+    'APKs',
+  ];
 
   void onSearchChanged(String query) async {
     setState(() {
@@ -29,7 +38,10 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
       isLoading = true;
     });
 
-    final resultPaths = await startSearchInIsolate(widget.internalStorage, query);
+    final resultPaths = await startSearchInIsolate(
+      widget.internalStorage,
+      query,
+    );
     final entities = resultPaths.map((e) => File(e)).toList();
 
     setState(() {
@@ -57,6 +69,25 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _searchFocusNode = FocusNode();
+    _searchController = TextEditingController();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _searchFocusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchFocusNode.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+
+  @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
       expand: false,
@@ -67,6 +98,7 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
           child: Column(
             children: [
               SearchBarWidget(
+                focusNode: _searchFocusNode,
                 controller: _searchController,
                 onChanged: onSearchChanged,
               ),
@@ -74,7 +106,8 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                 CategorySelector(
                   categories: categories,
                   selectedIndex: selectedCategory,
-                  onCategorySelected: (index) => setState(() => selectedCategory = index),
+                  onCategorySelected: (index) =>
+                      setState(() => selectedCategory = index),
                 ),
               if (hasSearched)
                 Expanded(

@@ -53,7 +53,11 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
       addFolderDialog(
         context: context,
         parentPath: widget.currentPath,
-        onSuccess: () => notifier.loadAllContentOfPath(widget.currentPath),
+        onSuccess: () {
+          if (mounted) {
+            notifier.loadAllContentOfPath(widget.currentPath);
+          }
+        },
       );
     }
 
@@ -61,24 +65,34 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
       mainAxisSize: MainAxisSize.min,
       children: [
         AppBar(
-          leading:isDragMode
+          leading: isDragMode
               ? const SizedBox.shrink()
               : IconButton(
             onPressed: () {
-              final selection = ref.read(selectionProvider);
               final selectionNotifier = ref.read(selectionProvider.notifier);
-
-              if (selection.isSelectionMode) {
+              if (selectionState.isSelectionMode) {
                 selectionNotifier.clearSelection();
               } else {
-                notifier.goBack(context);
+                if (!mounted) return;
+                Future.microtask(() {
+                  if (!mounted) return;
+                  ref.read(widget.providerInstance.notifier).goBack(context);
+                });
               }
             },
-            icon: const Icon(Icons.arrow_back),
-          ),
+
+            icon: Icon(
+                    selectionState.isSelectionMode
+                        ? Icons.close
+                        : Icons.arrow_back,
+                  ),
+                ),
+
           titleSpacing: 0,
           title: Text(
-            headingPath,
+            selectionState.isSelectionMode
+                ? "${selectionState.selectedPaths.length} selected"
+                : headingPath,
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           elevation: 2,

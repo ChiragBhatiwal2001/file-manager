@@ -15,8 +15,8 @@ import 'package:file_manager/Services/file_operations.dart';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class BottomSheetForPasteOperation extends ConsumerStatefulWidget {
   final Set<String>? selectedPaths;
@@ -97,7 +97,7 @@ class _BottomSheetForPasteOperationState
       }
     }
 
-    return null; // No conflict
+    return null;
   }
 
   Future<void> _handlePaste() async {
@@ -156,34 +156,46 @@ class _BottomSheetForPasteOperationState
       operation: (onProgress) async {
         final fileOps = FileOperations();
         try {
-          if (widget.isSingleOperation && widget.selectedSinglePath != null) {
+          final fileOps = FileOperations();
+
+          if (widget.selectedSinglePath != null) {
             await fileOps.pasteFileToDestination(
               widget.isCopy,
               currentPath,
               widget.selectedSinglePath!,
               onProgress: onProgress,
             );
-          } else if (widget.selectedPaths != null &&
-              widget.selectedPaths!.isNotEmpty) {
-            final receivePort = ReceivePort();
-            await Isolate.spawn(pasteWorker, {
-              'paths': widget.selectedPaths!.toList(),
-              'destination': currentPath,
-              'isCopy': widget.isCopy,
-              'sendPort': receivePort.sendPort,
-            });
+          } else if (widget.selectedPaths != null && widget.selectedPaths!.isNotEmpty) {
+            // If only one path, handle it directly without isolate
+            if (widget.selectedPaths!.length == 1) {
+              await fileOps.pasteFileToDestination(
+                widget.isCopy,
+                currentPath,
+                widget.selectedPaths!.first,
+                onProgress: onProgress,
+              );
+            } else {
+              final receivePort = ReceivePort();
+              await Isolate.spawn(pasteWorker, {
+                'paths': widget.selectedPaths!.toList(),
+                'destination': currentPath,
+                'isCopy': widget.isCopy,
+                'sendPort': receivePort.sendPort,
+              });
 
-            await for (var message in receivePort) {
-              if (message is double) {
-                onProgress(message);
-              } else if (message == 'done') {
-                receivePort.close();
-                break;
+              await for (var message in receivePort) {
+                if (message is double) {
+                  onProgress(message);
+                } else if (message == 'done') {
+                  receivePort.close();
+                  break;
+                }
               }
             }
 
             widget.selectedPaths!.clear();
           }
+
         } catch (e) {
           if (context.mounted) {
             await showDialog(
@@ -202,7 +214,13 @@ class _BottomSheetForPasteOperationState
           }
         }
       },
-    );
+    ).then((result) {
+      Fluttertoast.showToast(
+        msg: result != null
+            ? "${widget.isCopy ? 'Copy' : 'Move'} operation failed"
+            : "${widget.isCopy ? 'Copy' : 'Move'} operation successful",
+      );
+    });
 
     if (mounted) Navigator.of(context).pop(true);
     setState(() => _isPasting = false);

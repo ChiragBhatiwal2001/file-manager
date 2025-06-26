@@ -9,13 +9,18 @@ Future<void> renameDialogBox({
   final isDir = FileSystemEntity.isDirectorySync(oldPath);
   final oldName = oldPath.split("/").last;
   final renameTextController = TextEditingController(text: oldName);
+  final focusNode = FocusNode();
 
   await showDialog(
     context: context,
     builder: (context) {
+      WidgetsBinding.instance.addPostFrameCallback((_){
+        focusNode.requestFocus();
+      });
       return AlertDialog(
         title: Text(isDir ? "Rename Folder" : "Rename File"),
         content: TextField(
+          focusNode: focusNode,
           controller: renameTextController,
           decoration: InputDecoration(
             label: Text("Name"),

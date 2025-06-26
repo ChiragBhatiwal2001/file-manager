@@ -1,6 +1,7 @@
 import 'package:file_manager/Helpers/sorting_dialog.dart';
 import 'package:file_manager/Providers/file_explorer_notifier.dart';
 import 'package:file_manager/Providers/manual_drag_mode_notifier.dart';
+import 'package:file_manager/Providers/view_toggle_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -67,9 +68,8 @@ class SettingPopupMenuWidget extends ConsumerWidget {
             final forCurrentPath = result["applyToCurrentPath"] ?? true;
 
             if (sortOrder == "drag") {
-              if (!showPathSpecificOption) {
-                return;
-              }
+              if (!showPathSpecificOption) return;
+
               final forCurrentPath = result["applyToCurrentPath"] ?? true;
 
               if (setSortValue != null) {
@@ -79,11 +79,10 @@ class SettingPopupMenuWidget extends ConsumerWidget {
                     .read(fileExplorerProvider.notifier)
                     .setSortValue("drag", forCurrentPath: forCurrentPath);
               }
-              if (forCurrentPath) {
-                ref.read(manualDragModeProvider.notifier).state = true;
-              } else {
-                ref.read(manualDragModeProvider.notifier).state = false;
-              }
+              ref.read(manualDragModeProvider.notifier).state = forCurrentPath;
+
+              final viewModeNotifier = ref.read(fileViewModeProvider.notifier);
+              viewModeNotifier.setMode("List View");
 
               if (onSortChanged != null) {
                 onSortChanged!("drag");

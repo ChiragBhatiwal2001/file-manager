@@ -81,7 +81,7 @@ class _BottomSheetForSingleFileOperationState
                       fileData: fileData,
                       path: widget.path,
                     ),
-                    const Divider(height: 24, thickness: 1),
+                    const Divider(height: 20, thickness: 1),
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),

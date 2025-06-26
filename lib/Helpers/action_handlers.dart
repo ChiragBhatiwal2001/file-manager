@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:file_manager/Helpers/detail_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:path/path.dart' as p;
 import 'package:file_manager/Providers/favorite_notifier.dart';
 import 'package:file_manager/Services/file_operations.dart';
@@ -153,11 +154,15 @@ Future<void> _handleDelete(
                 try {
                   if (deletePermanently) {
                     await RecentlyDeletedManager().deleteOriginalPath(path);
+                    Fluttertoast.showToast(
+                      msg: deletePermanently
+                          ? "${p.basename(path)} permanently deleted"
+                          : "${p.basename(path)} deleted",
+                    );
                   } else {
                     await FileOperations().deleteOperation(path);
                   }
                   if (context.mounted) {
-                    // Close progress dialog first (if it's still open)
                     Navigator.of(
                       Navigator.of(context).context,
                       rootNavigator: true,

@@ -5,6 +5,7 @@ import 'package:file_manager/Providers/selction_notifier.dart';
 import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/show_progress_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
 
@@ -96,7 +97,22 @@ class SelectionActionsWidget extends ConsumerWidget {
                     );
                   }
                 },
-              );
+              ).then((_){
+                if (isSingle) {
+                  final name = p.basename(selectedPaths.first);
+                  Fluttertoast.showToast(
+                    msg: deletePermanently
+                        ? "$name Permanently deleted"
+                        : "$name deleted",
+                  );
+                } else {
+                  Fluttertoast.showToast(
+                    msg: deletePermanently
+                        ? "${selectedPaths.length} items permanently deleted"
+                        : "${selectedPaths.length} items deleted",
+                  );
+                }
+              });
 
               selectionNotifier.clearSelection();
               onPostAction();
@@ -104,37 +120,9 @@ class SelectionActionsWidget extends ConsumerWidget {
           },
         ),
         IconButton(
-          icon: const Icon(Icons.copy),
+          icon: const Icon(Icons.select_all),
           onPressed: () {
-            showModalBottomSheet(
-              context: context,
-              useSafeArea: true,
-              isScrollControlled: true,
-              builder: (context) => BottomSheetForPasteOperation(
-                selectedPaths: {...selectionState.selectedPaths},
-                isCopy: true,
-              ),
-            ).then((_) {
-              selectionNotifier.clearSelection();
-              onPostAction();
-            });
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.cut),
-          onPressed: () {
-            showModalBottomSheet(
-              context: context,
-              useSafeArea: true,
-              isScrollControlled: true,
-              builder: (context) => BottomSheetForPasteOperation(
-                selectedPaths: {...selectionState.selectedPaths},
-                isCopy: false,
-              ),
-            ).then((_) {
-              selectionNotifier.clearSelection();
-              onPostAction();
-            });
+            selectionNotifier.selectAll(allCurrentPaths);
           },
         ),
         PopupMenuButton<String>(
@@ -144,10 +132,11 @@ class SelectionActionsWidget extends ConsumerWidget {
               case 'share':
                 final files = selectionState.selectedPaths
                     .where((path) {
-                  final file = File(path);
-                  return file.existsSync() &&
-                      file.statSync().type != FileSystemEntityType.directory;
-                })
+                      final file = File(path);
+                      return file.existsSync() &&
+                          file.statSync().type !=
+                              FileSystemEntityType.directory;
+                    })
                     .map((path) => XFile(path))
                     .toList();
 
@@ -165,15 +154,31 @@ class SelectionActionsWidget extends ConsumerWidget {
                   );
                 }
                 break;
-              case 'select_all':
-                selectionNotifier.selectAll(allCurrentPaths);
-                break;
-              case 'close':
+              case "Copy":
                 selectionNotifier.clearSelection();
+                await _showPasteSheet(context, true, selectionState.selectedPaths, onPostAction);
+                break;
+              case "Move":
+                selectionNotifier.clearSelection();
+                await _showPasteSheet(context, false, selectionState.selectedPaths, onPostAction);
                 break;
             }
           },
           itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'Copy',
+              child: ListTile(
+                leading: Icon(Icons.copy),
+                title: Text('Copy'),
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'Move',
+              child: ListTile(
+                leading: Icon(Icons.cut),
+                title: Text('Move'),
+              ),
+            ),
             if (enableShare && !containsDirectory)
               const PopupMenuItem(
                 value: 'share',
@@ -182,23 +187,29 @@ class SelectionActionsWidget extends ConsumerWidget {
                   title: Text('Share'),
                 ),
               ),
-            const PopupMenuItem(
-              value: 'select_all',
-              child: ListTile(
-                leading: Icon(Icons.select_all),
-                title: Text('Select All'),
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'close',
-              child: ListTile(
-                leading: Icon(Icons.close),
-                title: Text('Clear Selection'),
-              ),
-            ),
           ],
         ),
       ],
     );
+  }
+
+  Future<void> _showPasteSheet(
+    BuildContext context,
+    bool isCopy,
+    Set<String> path,
+    void Function() loadAgain,
+  ) async {
+    try {
+      final result = await showModalBottomSheet<bool>(
+        isScrollControlled: true,
+        useSafeArea: true,
+        context: context,
+        builder: (context) => BottomSheetForPasteOperation(
+          isCopy: isCopy,
+          selectedPaths: path,
+        ),
+      );
+      if (result == true) loadAgain();
+    } catch (_) {}
   }
 }

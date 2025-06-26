@@ -223,6 +223,7 @@ class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
         } else {
           final filePath = visibleFiles[index - fileHeaderIndex - 1].path;
           return FileListTile(
+            key: ValueKey('$filePath-$index'),
             path: filePath,
             providerInstance: widget.providerInstance,
           );

@@ -6,16 +6,28 @@ Future<void> addFolderDialog({
   required String parentPath,
   required VoidCallback onSuccess,
 }) async {
-  final controller = TextEditingController();
+  final controller = TextEditingController(text: "New Folder");
 
   await showDialog(
     context: context,
     builder: (context) {
+      final focusNode = FocusNode();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        controller.selection = TextSelection(baseOffset: 0, extentOffset: controller.text.length);
+        focusNode.requestFocus();
+      });
       return AlertDialog(
         title: Text("Add New Folder"),
         content: TextField(
+          focusNode: focusNode,
           controller: controller,
           decoration: InputDecoration(
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.clear),
+              onPressed: () {
+                controller.clear();
+              },
+            ),
             label: Text("Folder Name"),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(5.0),

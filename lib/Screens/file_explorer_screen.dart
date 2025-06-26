@@ -71,15 +71,11 @@ class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> {
             : FileExplorerGridBody(providerInstance: fileExplorerProvider),
         floatingActionButton: isInDragMode
             ? FloatingActionButton(
-                onPressed: () async {
-                  ref.read(manualDragModeProvider.notifier).state = false;
-                  await ref.read(fileExplorerProvider.notifier).loadAllContentOfPath(
-                    ref.read(currentPathProvider),
-                  );
-
-                },
-                child: Icon(Icons.clear),
-              )
+          onPressed: () {
+            ref.read(manualDragModeProvider.notifier).state = false;
+          },
+          child: Icon(Icons.clear),
+        )
             : null,
       ),
     );

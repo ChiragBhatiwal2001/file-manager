@@ -11,15 +11,15 @@ import 'package:file_manager/Services/sort_preference_db.dart';
 
 class FileExplorerNotifier extends StateNotifier<FileExplorerState> {
   FileExplorerNotifier(this.initialPath, this.ref)
-    : super(
-        FileExplorerState(
-          currentPath: initialPath,
-          folders: [],
-          files: [],
-          isLoading: false,
-          sortValue: "name-asc",
-        ),
-      ) {
+      : super(
+    FileExplorerState(
+      currentPath: initialPath,
+      folders: [],
+      files: [],
+      isLoading: false,
+      sortValue: "name-asc",
+    ),
+  ) {
     _init(initialPath);
   }
 
@@ -31,7 +31,6 @@ class FileExplorerNotifier extends StateNotifier<FileExplorerState> {
   }
 
   Future<void> loadAllContentOfPath(String path) async {
-    if (!mounted) return;
     ref.read(currentPathProvider.notifier).state = path;
     state = state.copyWith(isLoading: true);
 
@@ -80,9 +79,9 @@ class FileExplorerNotifier extends StateNotifier<FileExplorerState> {
   }
 
   Future<void> setSortValue(
-    String sortValue, {
-    bool forCurrentPath = false,
-  }) async {
+      String sortValue, {
+        bool forCurrentPath = false,
+      }) async {
     if (forCurrentPath) {
       await SortPreferenceDB.setSortForPath(state.currentPath, sortValue);
     } else {
@@ -109,10 +108,10 @@ class FileExplorerNotifier extends StateNotifier<FileExplorerState> {
 }
 
 final fileExplorerProvider =
-    StateNotifierProvider<FileExplorerNotifier, FileExplorerState>((ref) {
-      final initialPath = ref.watch(currentPathProvider);
-      return FileExplorerNotifier(initialPath, ref);
-    });
+StateNotifierProvider<FileExplorerNotifier, FileExplorerState>((ref) {
+  final initialPath = ref.watch(currentPathProvider);
+  return FileExplorerNotifier(initialPath, ref);
+});
 
 final currentPathProvider = StateProvider<String>((ref) {
   return Constant.internalPath!;

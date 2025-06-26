@@ -39,7 +39,7 @@ class MediaUtils {
       case MediaType.archive:
         return Icons.archive;
       default:
-        return Icons.folder;
+        return Icons.insert_drive_file;
     }
   }
 }

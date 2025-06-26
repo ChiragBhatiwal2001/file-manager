@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 class SearchBarWidget extends StatelessWidget {
   final TextEditingController controller;
   final void Function(String) onChanged;
+  final FocusNode focusNode;
 
   const SearchBarWidget({
     super.key,
     required this.controller,
     required this.onChanged,
+    required this.focusNode,
   });
 
   @override
@@ -18,6 +20,7 @@ class SearchBarWidget extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(
+              focusNode: focusNode,
               controller: controller,
               onChanged: onChanged,
               decoration: InputDecoration(

@@ -50,6 +50,7 @@ dependencies:
   pdfx:
   hive_flutter: ^1.1.0
   hive:
+  fluttertoast: ^8.2.12
   device_info_plus: ^10.1.0
 
 dev_dependencies:

@@ -20,7 +20,9 @@ class _SortDialogState extends State<SortDialog> {
   late String _sortBy;
   late String _sortOrder;
   bool _applyToCurrentPath = false;
-  bool get _finalApplyToCurrentPath => widget.showPathSpecificOption ? _applyToCurrentPath : true;
+
+  bool get _finalApplyToCurrentPath =>
+      widget.showPathSpecificOption ? _applyToCurrentPath : true;
 
   @override
   void initState() {
@@ -61,52 +63,66 @@ class _SortDialogState extends State<SortDialog> {
             onChanged: (val) => setState(() => _sortBy = val as String),
           ),
           if (widget.showPathSpecificOption)
-          RadioListTile(
-            title: const Text("Manual Drag"),
-            value: "drag",
-            groupValue: _sortBy,
-            onChanged: (val) {
-              setState(() => _sortBy = val as String);
-              Navigator.pop(context, {
-                "sortBy": "drag",
-                "sortOrder": "drag",
-                "applyToCurrentPath": _finalApplyToCurrentPath,
-              });
-            },
-          ),
+            RadioListTile(
+              title: const Text("Manual Drag"),
+              value: "drag",
+              groupValue: _sortBy,
+              onChanged: (val) {
+                setState(() {
+                  _sortBy = val as String;
+                  _applyToCurrentPath = true;
+                });
+              },
+            ),
           if (widget.showPathSpecificOption)
             SwitchListTile(
+              key: ValueKey("switch-$_applyToCurrentPath"),
               title: const Text("only this folder"),
               value: _applyToCurrentPath,
               onChanged: (val) => setState(() => _applyToCurrentPath = val),
             ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              TextButton(
+          if (_sortBy == "drag")
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
                 onPressed: () {
-                  _sortOrder = "desc";
                   Navigator.pop(context, {
-                    "sortBy": _sortBy,
-                    "sortOrder": _sortOrder,
-                    "applyToCurrentPath": _applyToCurrentPath,
+                    "sortBy": "drag",
+                    "sortOrder": "drag",
+                    "applyToCurrentPath": _finalApplyToCurrentPath,
                   });
                 },
-                child: const Text("Descending"),
+                child: const Text("OK"),
               ),
-              TextButton(
-                onPressed: () {
-                  _sortOrder = "asc";
-                  Navigator.pop(context, {
-                    "sortBy": _sortBy,
-                    "sortOrder": _sortOrder,
-                    "applyToCurrentPath": _applyToCurrentPath,
-                  });
-                },
-                child: const Text("Ascending"),
-              ),
-            ],
-          ),
+            ),
+          if(_sortBy != "drag")
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                TextButton(
+                  onPressed: () {
+                    _sortOrder = "desc";
+                    Navigator.pop(context, {
+                      "sortBy": _sortBy,
+                      "sortOrder": _sortOrder,
+                      "applyToCurrentPath": _applyToCurrentPath,
+                    });
+                  },
+                  child: const Text("Descending"),
+                ),
+                TextButton(
+                  onPressed: () {
+                    _sortOrder = "asc";
+                    Navigator.pop(context, {
+                      "sortBy": _sortBy,
+                      "sortOrder": _sortOrder,
+                      "applyToCurrentPath": _applyToCurrentPath,
+                    });
+                  },
+                  child: const Text("Ascending"),
+                ),
+              ],
+            ),
         ],
       ),
     );

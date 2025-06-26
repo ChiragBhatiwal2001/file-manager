@@ -2,6 +2,7 @@ import 'package:file_manager/Providers/hide_file_folder_notifier.dart';
 import 'package:file_manager/Providers/limit_setting_provider.dart';
 import 'package:file_manager/Providers/theme_notifier.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SettingScreen extends ConsumerStatefulWidget {
@@ -21,6 +22,7 @@ class _SettingScreenState extends ConsumerState<SettingScreen> {
   void dispose() {
     super.dispose();
     _limitRecentController.dispose();
+    _limitFavoriteController.dispose();
   }
 
   @override
@@ -42,6 +44,7 @@ class _SettingScreenState extends ConsumerState<SettingScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          //Theme
           Padding(
             padding: const EdgeInsets.only(left: 20.0, top: 6.0),
             child: Text(
@@ -64,6 +67,7 @@ class _SettingScreenState extends ConsumerState<SettingScreen> {
             ),
           ),
           Divider(),
+          //Recent
           Padding(
             padding: const EdgeInsets.only(left: 20.0, top: 6.0),
             child: Text(
@@ -86,14 +90,20 @@ class _SettingScreenState extends ConsumerState<SettingScreen> {
 
                   return StatefulBuilder(
                     builder: (context, setState) {
+                      final focusNode = FocusNode();
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        focusNode.requestFocus();
+                      });
                       return AlertDialog(
                         title: Text("Recent Files Showing Limit"),
                         content: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             TextField(
+                              focusNode: focusNode,
                               controller: _limitRecentController,
                               keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                               decoration: InputDecoration(
                                 hintText: "Enter Limit (25-150)",
                                 errorText: errorText,
@@ -115,7 +125,7 @@ class _SettingScreenState extends ConsumerState<SettingScreen> {
                                     errorText = "choose between 25 to 150";
                                   });
                                   FocusScope.of(context).unfocus();
-                                  _limitRecentController.clear();
+                                  return;
                                 } else {
                                   Navigator.pop(context);
                                   FocusScope.of(context).unfocus();
@@ -133,9 +143,12 @@ class _SettingScreenState extends ConsumerState<SettingScreen> {
                     },
                   );
                 },
-              );
+              ).then((_){
+                _limitRecentController.clear();
+              });
             },
           ),
+          //Favorite
           ListTile(
             title: Text(
               "Favorites Files Limit",
@@ -151,14 +164,20 @@ class _SettingScreenState extends ConsumerState<SettingScreen> {
 
                   return StatefulBuilder(
                     builder: (context, setState) {
+                      final focusNode = FocusNode();
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        focusNode.requestFocus();
+                      });
                       return AlertDialog(
                         title: Text("Favorites Files Showing Limit"),
                         content: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             TextField(
+                              focusNode: focusNode,
                               controller: _limitFavoriteController,
                               keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                               decoration: InputDecoration(
                                 hintText: "Enter Limit (2–25)",
                                 errorText: errorText,
@@ -178,7 +197,7 @@ class _SettingScreenState extends ConsumerState<SettingScreen> {
                                     errorText = "choose between 2 to 25";
                                   });
                                   FocusScope.of(context).unfocus();
-                                  _limitFavoriteController.clear();
+                                  return;
                                 } else {
                                   Navigator.pop(context);
                                   FocusScope.of(context).unfocus();
@@ -196,9 +215,12 @@ class _SettingScreenState extends ConsumerState<SettingScreen> {
                     },
                   );
                 },
-              );
+              ).then((_){
+                _limitFavoriteController.clear();
+              });
             },
           ),
+          //Hide
           ListTile(
             title: Text(
               "Show Hidden Files and Folders",

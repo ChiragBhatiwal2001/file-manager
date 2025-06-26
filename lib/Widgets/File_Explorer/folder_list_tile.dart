@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:file_manager/Providers/hide_file_folder_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,7 +12,8 @@ import 'package:path/path.dart' as p;
 
 class FolderListTile extends ConsumerStatefulWidget {
   final String path;
-  final StateNotifierProvider<FileExplorerNotifier, FileExplorerState> providerInstance;
+  final StateNotifierProvider<FileExplorerNotifier, FileExplorerState>
+  providerInstance;
   final bool isDrag;
 
   const FolderListTile({
@@ -26,11 +29,13 @@ class FolderListTile extends ConsumerStatefulWidget {
 
 class _FolderListTileState extends ConsumerState<FolderListTile> {
   Map<String, dynamic>? _metadata;
+  int? _contentCount;
 
   @override
   void initState() {
     super.initState();
     _loadMetadata();
+    _loadContentCount();
   }
 
   void _loadMetadata() async {
@@ -42,9 +47,26 @@ class _FolderListTileState extends ConsumerState<FolderListTile> {
     }
   }
 
+  void _loadContentCount() async {
+    try {
+      final dir = Directory(widget.path);
+      if (await dir.exists()) {
+        final list = await dir.list().toList();
+        if (mounted) {
+          setState(() {
+            _contentCount = list.length;
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isHidden = ref.watch(hiddenPathsProvider).hiddenPaths.contains(widget.path);
+    final isHidden = ref
+        .watch(hiddenPathsProvider)
+        .hiddenPaths
+        .contains(widget.path);
     final folderName = p.basename(widget.path);
     final selection = ref.watch(selectionProvider);
     final notifier = ref.read(widget.providerInstance.notifier);
@@ -59,15 +81,15 @@ class _FolderListTileState extends ConsumerState<FolderListTile> {
       ),
       subtitle: _metadata != null
           ? Text(
-        "${_metadata!['Size']} | ${_metadata!['Modified']}",
-        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-      )
+              "$_contentCount items | ${_metadata!['Modified']}",
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            )
           : const Text("Loading..."),
       leading: widget.isDrag
           ? null
           : CircleAvatar(
-        child: Icon(Icons.folder, color: isHidden ? Colors.grey : null),
-      ),
+              child: Icon(Icons.folder, color: isHidden ? Colors.grey : null),
+            ),
       trailing: _buildTrailing(context, selection),
       onTap: () {
         if (selection.isSelectionMode) {
