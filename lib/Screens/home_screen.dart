@@ -1,4 +1,5 @@
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:file_manager/Providers/favorite_notifier.dart';
 import 'package:file_manager/Providers/theme_notifier.dart';
 import 'package:file_manager/Screens/favorite_screen.dart';
 import 'package:file_manager/Screens/file_explorer_screen.dart';
@@ -80,6 +81,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     MediaType.audio: Icons.music_note,
     MediaType.document: Icons.insert_drive_file,
     MediaType.apk: Icons.android,
+    MediaType.archive: Icons.archive
   };
 
   void _showPermissionSnackBar(BuildContext context) {
@@ -140,13 +142,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     return;
                   }
                   await getStoragePath();
-                  Navigator.of(context).push(
+                  await Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => FileExplorerScreen(
                         initialPath: Constant.internalPath,
                       ),
                     ),
                   );
+                  await ref.read(favoritesProvider.notifier).loadFavorites();
                 },
               ),
               const SizedBox(height: 18),
@@ -172,7 +175,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     return;
                   }
                   await getStoragePath();
-                  Navigator.push(
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => QuickAccessScreen(
@@ -181,6 +184,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                   );
+                  await ref.read(favoritesProvider.notifier).loadFavorites();
                 },
               ),
               const SizedBox(height: 18),

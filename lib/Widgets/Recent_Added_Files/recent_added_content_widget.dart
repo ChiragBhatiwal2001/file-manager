@@ -1,3 +1,4 @@
+import 'package:file_manager/Providers/hide_file_folder_notifier.dart';
 import 'package:file_manager/Providers/limit_setting_provider.dart';
 import 'package:file_manager/Providers/view_toggle_notifier.dart';
 import 'package:file_manager/Services/file_operations.dart';
@@ -70,9 +71,18 @@ class _RecentAddedContentWidgetState
     final selectionNotifier = ref.read(selectionProvider.notifier);
     final recentLimit = ref.watch(limitSettingsProvider).recentLimit;
     final viewMode = ref.watch(fileViewModeProvider);
+    final hiddenState = ref.watch(hiddenPathsProvider);
+    final showHidden = hiddenState.showHidden;
+    final hiddenPaths = hiddenState.hiddenPaths;
+    final selectedCount = selectionState.selectedPaths.length;
+
     final limitedData = data.take(recentLimit).toList();
 
-    return  PopScope(
+    final visibleLimitedData = limitedData.where((file) {
+      return showHidden || !hiddenPaths.contains(file.path);
+    }).toList();
+
+    return PopScope(
       canPop: true,
       onPopInvoked: (didPop) async {
         if (!didPop && selectionState.isSelectionMode) {
@@ -83,9 +93,15 @@ class _RecentAddedContentWidgetState
         appBar: AppBar(
           leading: IconButton(
             onPressed: () {
-              Navigator.pop(context);
+              if (selectionState.isSelectionMode) {
+                selectionNotifier.clearSelection();
+              } else {
+                Navigator.pop(context);
+              }
             },
-            icon: Icon(Icons.arrow_back),
+            icon: Icon(
+              selectionState.isSelectionMode ? Icons.close : Icons.arrow_back,
+            ),
           ),
           bottom: _isLoading
               ? null
@@ -96,7 +112,7 @@ class _RecentAddedContentWidgetState
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        "${limitedData.length} items in total",
+                        "${visibleLimitedData.length} items in total",
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -104,7 +120,9 @@ class _RecentAddedContentWidgetState
                 ),
           titleSpacing: 0,
           title: Text(
-            widget.categoryName.toUpperCase(),
+            selectedCount > 0
+                ? "$selectedCount selected"
+                : widget.categoryName.toUpperCase(),
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           actions: selectionState.isSelectionMode
@@ -153,8 +171,8 @@ class _RecentAddedContentWidgetState
                   ),
                   IconButton(
                     icon: Icon(Icons.copy),
-                    onPressed: () {
-                      showModalBottomSheet(
+                    onPressed: () async {
+                      await showModalBottomSheet(
                         context: context,
                         useSafeArea: true,
                         isScrollControlled: true,
@@ -164,10 +182,12 @@ class _RecentAddedContentWidgetState
                           ),
                           isCopy: true,
                         ),
-                      ).then((_) {
-                        selectionNotifier.clearSelection();
-                        _refreshData();
-                        widget.onOperationDone?.call();
+                      ).then((result) {
+                        if (result != null) {
+                          selectionNotifier.clearSelection();
+                          _refreshData();
+                          widget.onOperationDone?.call();
+                        }
                       });
                     },
                   ),
@@ -184,16 +204,22 @@ class _RecentAddedContentWidgetState
                           ),
                           isCopy: false,
                         ),
-                      ).then((_) {
-                        selectionNotifier.clearSelection();
-                        _refreshData();
-                        widget.onOperationDone?.call();
+                      ).then((result) {
+                        if (result != null) {
+                          selectionNotifier.clearSelection();
+                          _refreshData();
+                          widget.onOperationDone?.call();
+                        }
                       });
                     },
                   ),
                   IconButton(
-                    icon: Icon(Icons.close),
-                    onPressed: selectionNotifier.clearSelection,
+                    icon: Icon(Icons.select_all),
+                    onPressed: () {
+                      selectionNotifier.selectAll(
+                        visibleLimitedData.map((e) => e.path).toList(),
+                      );
+                    },
                   ),
                 ]
               : [
@@ -224,7 +250,7 @@ class _RecentAddedContentWidgetState
             : viewMode == "Grid View"
             ? GridView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: limitedData.length,
+                itemCount: visibleLimitedData.length,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   childAspectRatio: 0.85,
@@ -232,16 +258,16 @@ class _RecentAddedContentWidgetState
                   mainAxisSpacing: 16,
                 ),
                 itemBuilder: (context, index) => RecentAddedTile(
-                  file: limitedData[index],
+                  file: visibleLimitedData[index],
                   isGrid: true,
                   onRefresh: _refreshData,
                   onOperationDone: widget.onOperationDone,
                 ),
               )
             : ListView.separated(
-                itemCount: limitedData.length,
+                itemCount: visibleLimitedData.length,
                 itemBuilder: (context, index) => RecentAddedTile(
-                  file: limitedData[index],
+                  file: visibleLimitedData[index],
                   isGrid: false,
                   onRefresh: _refreshData,
                   onOperationDone: widget.onOperationDone,

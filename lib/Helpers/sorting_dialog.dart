@@ -22,13 +22,16 @@ class _SortDialogState extends State<SortDialog> {
   bool _applyToCurrentPath = false;
 
   bool get _finalApplyToCurrentPath =>
-      widget.showPathSpecificOption ? _applyToCurrentPath : true;
+      _sortBy == "drag" ? true : (widget.showPathSpecificOption ? _applyToCurrentPath : true);
 
   @override
   void initState() {
     super.initState();
     _sortBy = widget.initialSortBy;
     _sortOrder = widget.initialSortOrder;
+    if (_sortBy == "drag") {
+      _applyToCurrentPath = true;
+    }
   }
 
   @override
@@ -70,14 +73,14 @@ class _SortDialogState extends State<SortDialog> {
               onChanged: (val) {
                 setState(() {
                   _sortBy = val as String;
-                  _applyToCurrentPath = true;
+                  _applyToCurrentPath = true; // Force path-specific
                 });
               },
             ),
-          if (widget.showPathSpecificOption)
+          if (widget.showPathSpecificOption && _sortBy != "drag")
             SwitchListTile(
               key: ValueKey("switch-$_applyToCurrentPath"),
-              title: const Text("only this folder"),
+              title: const Text("Only this folder"),
               value: _applyToCurrentPath,
               onChanged: (val) => setState(() => _applyToCurrentPath = val),
             ),
@@ -95,7 +98,7 @@ class _SortDialogState extends State<SortDialog> {
                 child: const Text("OK"),
               ),
             ),
-          if(_sortBy != "drag")
+          if (_sortBy != "drag")
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -105,7 +108,7 @@ class _SortDialogState extends State<SortDialog> {
                     Navigator.pop(context, {
                       "sortBy": _sortBy,
                       "sortOrder": _sortOrder,
-                      "applyToCurrentPath": _applyToCurrentPath,
+                      "applyToCurrentPath": _finalApplyToCurrentPath,
                     });
                   },
                   child: const Text("Descending"),
@@ -116,7 +119,7 @@ class _SortDialogState extends State<SortDialog> {
                     Navigator.pop(context, {
                       "sortBy": _sortBy,
                       "sortOrder": _sortOrder,
-                      "applyToCurrentPath": _applyToCurrentPath,
+                      "applyToCurrentPath": _finalApplyToCurrentPath,
                     });
                   },
                   child: const Text("Ascending"),
@@ -128,3 +131,4 @@ class _SortDialogState extends State<SortDialog> {
     );
   }
 }
+

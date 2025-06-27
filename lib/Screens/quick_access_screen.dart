@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:file_manager/Providers/hide_file_folder_notifier.dart';
 import 'package:file_manager/Providers/selction_notifier.dart';
 import 'package:file_manager/Providers/view_toggle_notifier.dart';
 import 'package:file_manager/Services/media_scanner.dart';
@@ -94,7 +95,16 @@ class _QuickAccessScreenState extends ConsumerState<QuickAccessScreen> {
     final selectionState = ref.watch(selectionProvider);
     final selectionNotifier = ref.read(selectionProvider.notifier);
     final fileViewMode = ref.watch(fileViewModeProvider);
-    final allCurrentPaths = data.map((e) => e.path).toList();
+    final hiddenState = ref.watch(hiddenPathsProvider);
+    final showHidden = hiddenState.showHidden;
+    final hiddenPaths = hiddenState.hiddenPaths;
+
+    final visibleData = data
+        .where((file) => showHidden || !hiddenPaths.contains(file.path))
+        .toList();
+
+    final allCurrentPaths = visibleData.map((e) => e.path).toList();
+
     return PopScope(
       canPop: true,
       onPopInvoked: (didPop) async {
@@ -106,7 +116,7 @@ class _QuickAccessScreenState extends ConsumerState<QuickAccessScreen> {
         appBar: QuickAccessAppBar(
           title: widget.category.name.toUpperCase(),
           isLoading: _isLoading,
-          itemCount: data.length,
+          itemCount: visibleData.length,
 
           actions: selectionState.isSelectionMode
               ? [
@@ -141,11 +151,18 @@ class _QuickAccessScreenState extends ConsumerState<QuickAccessScreen> {
                     },
                   ),
                 ],
-          onBack: () => Navigator.pop(context),
+          onBack: () {
+            final selectionNotifier = ref.read(selectionProvider.notifier);
+            if (selectionState.isSelectionMode) {
+              selectionNotifier.clearSelection();
+            } else {
+              Navigator.pop(context);
+            }
+          },
         ),
         body: fileViewMode == "List View"
             ? QuickAccessFileList(
-                data: data,
+                data: visibleData,
                 isLoading: _isLoading,
                 selectedPaths: selectedPaths,
                 getDataForDisplay: _getDataForDisplay,
@@ -153,7 +170,7 @@ class _QuickAccessScreenState extends ConsumerState<QuickAccessScreen> {
                 selectionNotifier: selectionNotifier,
               )
             : QuickAccessFileGrid(
-                data: data,
+                data: visibleData,
                 isLoading: _isLoading,
                 selectedPaths: selectedPaths,
                 getDataForDisplay: _getDataForDisplay,

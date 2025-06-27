@@ -3,6 +3,7 @@ import 'package:file_manager/Screens/file_explorer_screen.dart';
 import 'package:file_manager/Providers/favorite_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:path/path.dart' as p;
 import 'package:open_filex/open_filex.dart';
 
@@ -12,6 +13,18 @@ class FavoriteScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final favorites = ref.watch(favoritesProvider);
+    final validFavorites = favorites.where((path) {
+      return FileSystemEntity.typeSync(path) != FileSystemEntityType.notFound;
+    }).toList();
+
+    final invalidPaths = favorites.toSet().difference(validFavorites.toSet());
+    if (invalidPaths.isNotEmpty) {
+      Future.microtask(() {
+        ref
+            .read(favoritesProvider.notifier)
+            .removeFavorites(invalidPaths.toList());
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -43,6 +56,7 @@ class FavoriteScreen extends ConsumerWidget {
                               .read(favoritesProvider.notifier)
                               .clearFavorites();
                           Navigator.pop(context);
+                          Fluttertoast.showToast(msg: "All Favorites Removed");
                         },
                         child: Text("Yes"),
                       ),
@@ -91,12 +105,8 @@ class FavoriteScreen extends ConsumerWidget {
                           .read(favoritesProvider.notifier)
                           .toggleFavorite(path, isDir);
                       if (context.mounted) {
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: Text("Removed from Favorites"),
-                            content: Text("${p.basename(path)} removed"),
-                          ),
+                        Fluttertoast.showToast(
+                          msg: "${p.basename(path)} Remove from Favorites",
                         );
                       }
                     },

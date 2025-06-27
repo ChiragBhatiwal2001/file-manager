@@ -59,7 +59,7 @@ Future<void> _showPasteSheet(
   void Function(String) loadAgain,
 ) async {
   try {
-    final result = await showModalBottomSheet<bool>(
+    final result = await showModalBottomSheet<String>(
       isScrollControlled: true,
       useSafeArea: true,
       context: context,
@@ -69,7 +69,10 @@ Future<void> _showPasteSheet(
         selectedSinglePath: path,
       ),
     );
-    if (result == true) loadAgain(p.dirname(path));
+    if (result != null) {
+      print("$result is okay.?");
+      loadAgain(result);
+    }
   } catch (_) {
     await showErrorDialog(
       context,
@@ -91,25 +94,9 @@ Future<void> _toggleFavorite(
         .toggleFavorite(path, FileSystemEntity.isDirectorySync(path));
 
     if (!context.mounted) return;
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Favorites"),
-        content: Text(
-          isFavorite ? "Removed from Favorites" : "Added to Favorites",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-            },
-            child: const Text("OK"),
-          ),
-        ],
-      ),
+    Fluttertoast.showToast(
+      msg: isFavorite ? "Removed from Favorites" : "Added to Favorites",
     );
-
     loadAgain(p.dirname(path));
   } catch (e) {
     await showErrorDialog(context, "Favorite operation failed.\n$e");

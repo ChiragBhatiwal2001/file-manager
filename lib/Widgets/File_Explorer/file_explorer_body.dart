@@ -1,8 +1,8 @@
+import 'dart:io';
+
 import 'package:file_manager/Providers/file_explorer_notifier.dart';
-import 'package:file_manager/Providers/file_explorer_state_model.dart';
 import 'package:file_manager/Providers/hide_file_folder_notifier.dart';
 import 'package:file_manager/Providers/manual_drag_mode_notifier.dart';
-import 'package:file_manager/Providers/selction_notifier.dart';
 import 'package:file_manager/Services/drag_order_file_explorer.dart';
 import 'package:file_manager/Services/get_meta_data.dart';
 import 'package:file_manager/Utils/drag_ordering_enum_file_explorer.dart';
@@ -10,17 +10,13 @@ import 'package:file_manager/Widgets/File_Explorer/order_list.dart';
 import 'package:file_manager/Widgets/screen_empty_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 
 import 'file_list_tile.dart';
 import 'folder_list_tile.dart';
 
 class FileExplorerBody extends ConsumerStatefulWidget {
-  final StateNotifierProvider<FileExplorerNotifier, FileExplorerState>
-  providerInstance;
-
-  const FileExplorerBody({super.key, required this.providerInstance});
+  const FileExplorerBody({super.key});
 
   @override
   ConsumerState<FileExplorerBody> createState() => _FileExplorerBodyState();
@@ -31,7 +27,7 @@ class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(widget.providerInstance);
+    final state = ref.watch(fileExplorerProvider);
     final sortValue = state.sortValue;
     final isInDragMode = ref.watch(manualDragModeProvider);
     final isManualSort = sortValue == "drag";
@@ -61,7 +57,8 @@ class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
         onReorder: (oldIndex, newIndex) async {
           final draggedItem = _reorderedItems[oldIndex];
 
-          if (newIndex > _reorderedItems.length) newIndex = _reorderedItems.length;
+          if (newIndex > _reorderedItems.length)
+            newIndex = _reorderedItems.length;
           if (newIndex > oldIndex) newIndex--;
 
           final targetItem = _reorderedItems[newIndex];
@@ -140,7 +137,7 @@ class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
                     if (!snapshot.hasData) return const Text("Loading...");
                     final data = snapshot.data!;
                     return Text(
-                      "${data['Size']} | ${data['Modified']}",
+                      "${data['Modified']}",
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     );
                   },
@@ -204,10 +201,7 @@ class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
           );
         } else if (index > folderHeaderIndex && index < fileHeaderIndex) {
           final folderPath = visibleFolders[index - 1].path;
-          return FolderListTile(
-            path: folderPath,
-            providerInstance: widget.providerInstance,
-          );
+          return FolderListTile(path: folderPath);
         } else if (index == fileHeaderIndex && visibleFiles.isNotEmpty) {
           return const Padding(
             padding: EdgeInsets.only(left: 12.0, top: 8, bottom: 0),
@@ -225,7 +219,6 @@ class _FileExplorerBodyState extends ConsumerState<FileExplorerBody> {
           return FileListTile(
             key: ValueKey('$filePath-$index'),
             path: filePath,
-            providerInstance: widget.providerInstance,
           );
         }
       },

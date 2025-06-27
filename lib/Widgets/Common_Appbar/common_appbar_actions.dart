@@ -17,7 +17,7 @@ class SelectionActionsWidget extends ConsumerWidget {
     required this.allCurrentPaths,
   });
 
-  final VoidCallback onPostAction;
+  final void Function(String? pastedPath) onPostAction;
   final bool enableShare;
   final List<String> allCurrentPaths;
 
@@ -115,7 +115,7 @@ class SelectionActionsWidget extends ConsumerWidget {
               });
 
               selectionNotifier.clearSelection();
-              onPostAction();
+              onPostAction(null);
             }
           },
         ),
@@ -156,11 +156,11 @@ class SelectionActionsWidget extends ConsumerWidget {
                 break;
               case "Copy":
                 selectionNotifier.clearSelection();
-                await _showPasteSheet(context, true, selectionState.selectedPaths, onPostAction);
+                await _showPasteSheet(context, true, selectionState.selectedPaths);
                 break;
               case "Move":
                 selectionNotifier.clearSelection();
-                await _showPasteSheet(context, false, selectionState.selectedPaths, onPostAction);
+                await _showPasteSheet(context, false, selectionState.selectedPaths);
                 break;
             }
           },
@@ -197,10 +197,9 @@ class SelectionActionsWidget extends ConsumerWidget {
     BuildContext context,
     bool isCopy,
     Set<String> path,
-    void Function() loadAgain,
   ) async {
     try {
-      final result = await showModalBottomSheet<bool>(
+      final result = await showModalBottomSheet<String>(
         isScrollControlled: true,
         useSafeArea: true,
         context: context,
@@ -209,7 +208,9 @@ class SelectionActionsWidget extends ConsumerWidget {
           selectedPaths: path,
         ),
       );
-      if (result == true) loadAgain();
+      if (result != null) {
+        onPostAction(result);
+      }
     } catch (_) {}
   }
 }

@@ -25,13 +25,13 @@ class FileListWidget extends StatelessWidget {
           return ListTile(
             leading: Icon(
               Icons.insert_drive_file,
-              color: isSelected ? Colors.grey : Colors.blueGrey,
+              color: isSelected ? Colors.brown : Colors.blueGrey,
             ),
             title: Text(
               name,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: isSelected ? Colors.grey : null,
+                color: isSelected ? Colors.brown : null,
               ),
             ),
 

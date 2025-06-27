@@ -1,3 +1,4 @@
+import 'package:file_manager/Providers/hide_file_folder_notifier.dart';
 import 'package:file_manager/Services/get_meta_data.dart';
 import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/bottom_sheet_single_file_operations.dart';
 import 'package:flutter/foundation.dart';
@@ -65,6 +66,10 @@ class _QuickAccessGridItemState extends ConsumerState<QuickAccessGridItem> {
     final selectionNotifier = ref.read(selectionProvider.notifier);
     final isSelected = selectionState.selectedPaths.contains(widget.file.path);
     final isSelectionMode = selectionState.isSelectionMode;
+    final isHidden = ref
+        .watch(hiddenPathsProvider)
+        .hiddenPaths
+        .contains(widget.file.path);
 
     return GestureDetector(
       onTap: () {
@@ -125,7 +130,10 @@ class _QuickAccessGridItemState extends ConsumerState<QuickAccessGridItem> {
                       fileName,
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isHidden ? Colors.blueGrey : null,
+                      ),
                     ),
                   ),
                   isSelectionMode

@@ -21,33 +21,28 @@ class FolderListWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-            (context, index) {
-          final folder = folders[index];
-          final path = folder.path;
-          final name = p.basename(path);
-          final isSelected = selectedPaths.contains(path);
-          final isRestrictedFolder = isRestricted(path);
-          final isDisabled = isSelected || isRestrictedFolder;
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final folder = folders[index];
+        final path = folder.path;
+        final name = p.basename(path);
+        final isSelected = selectedPaths.contains(path);
+        final isRestrictedFolder = isRestricted(path);
+        final isDisabled = isSelected || isRestrictedFolder;
 
-          return ListTile(
-            leading: CircleAvatar(
-              backgroundColor: isDisabled ? Colors.grey.shade300 : null,
-              child: Icon(Icons.folder, color: isDisabled ? Colors.grey : null),
-            ),
-            title: Text(
-              name,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: isDisabled ? Colors.grey : null,
-              ),
-            ),
-            onTap: isDisabled ? null : () => onTap(path),
-            enabled: !isDisabled, // also dims and disables ripple
-          );
-        },
-        childCount: folders.length,
-      ),
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundColor: isDisabled ? Colors.grey.shade300 : null,
+            child: Icon(Icons.folder, color: isDisabled ? Colors.brown : null),
+          ),
+          title: Text(
+            name,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: isDisabled ? Colors.brown : null),
+          ),
+          onTap: isDisabled ? null : () => onTap(path),
+          enabled: !isDisabled, // also dims and disables ripple
+        );
+      }, childCount: folders.length),
     );
   }
 }

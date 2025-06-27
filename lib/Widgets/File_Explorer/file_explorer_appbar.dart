@@ -1,6 +1,5 @@
 import 'package:file_manager/Helpers/add_folder_dialog.dart';
 import 'package:file_manager/Providers/file_explorer_notifier.dart';
-import 'package:file_manager/Providers/file_explorer_state_model.dart';
 import 'package:file_manager/Providers/manual_drag_mode_notifier.dart';
 import 'package:file_manager/Providers/selction_notifier.dart';
 import 'package:file_manager/Providers/view_toggle_notifier.dart';
@@ -14,15 +13,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 class FileExplorerAppBar extends ConsumerStatefulWidget {
-  final StateNotifierProvider<FileExplorerNotifier, FileExplorerState>
-  providerInstance;
   final String currentPath;
 
-  const FileExplorerAppBar({
-    super.key,
-    required this.providerInstance,
-    required this.currentPath,
-  });
+  const FileExplorerAppBar({super.key, required this.currentPath});
 
   @override
   ConsumerState<FileExplorerAppBar> createState() {
@@ -36,7 +29,6 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
     final fileViewMode = ref.watch(fileViewModeProvider);
     final isDragMode = ref.watch(manualDragModeProvider);
     final currentState = ref.watch(fileExplorerProvider);
-    final notifier = ref.read(fileExplorerProvider.notifier);
 
     final allCurrentPaths = [
       ...currentState.folders.map((e) => e.path),
@@ -54,8 +46,10 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
         context: context,
         parentPath: widget.currentPath,
         onSuccess: () {
-          if (mounted) {
-            notifier.loadAllContentOfPath(widget.currentPath);
+          if (!mounted) return;
+          final freshNotifier = ref.read(fileExplorerProvider.notifier);
+          if (freshNotifier.mounted) {
+            freshNotifier.loadAllContentOfPath(widget.currentPath);
           }
         },
       );
@@ -68,20 +62,22 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
           leading: isDragMode
               ? const SizedBox.shrink()
               : IconButton(
-            onPressed: () {
-              final selectionNotifier = ref.read(selectionProvider.notifier);
-              if (selectionState.isSelectionMode) {
-                selectionNotifier.clearSelection();
-              } else {
-                if (!mounted) return;
-                Future.microtask(() {
-                  if (!mounted) return;
-                  ref.read(widget.providerInstance.notifier).goBack(context);
-                });
-              }
-            },
+                  onPressed: () {
+                    final selectionNotifier = ref.read(
+                      selectionProvider.notifier,
+                    );
+                    if (selectionState.isSelectionMode) {
+                      selectionNotifier.clearSelection();
+                    } else {
+                      if (!mounted) return;
+                      Future.microtask(() {
+                        if (!mounted) return;
+                        ref.read(fileExplorerProvider.notifier).goBack(context);
+                      });
+                    }
+                  },
 
-            icon: Icon(
+                  icon: Icon(
                     selectionState.isSelectionMode
                         ? Icons.close
                         : Icons.arrow_back,
@@ -101,8 +97,15 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
               : selectionState.isSelectionMode
               ? [
                   SelectionActionsWidget(
-                    onPostAction: () =>
-                        notifier.loadAllContentOfPath(widget.currentPath),
+                    onPostAction: (String? path) {
+                      if (!mounted) return;
+                      final pathToLoad = path ?? widget.currentPath;
+
+                      final freshNotifier = ref.read(fileExplorerProvider.notifier);
+                      if (freshNotifier.mounted) {
+                        freshNotifier.loadAllContentOfPath(pathToLoad);
+                      }
+                    },
                     allCurrentPaths: allCurrentPaths,
                     enableShare: true,
                   ),
@@ -130,7 +133,7 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
                       ref.read(fileViewModeProvider.notifier).setMode(mode);
                     },
                     currentPath: currentState.currentPath,
-                    currentSortValue: ref.watch(fileExplorerProvider).sortValue,
+                    currentSortValue: currentState.sortValue,
                     setSortValue: (sortValue, {forCurrentPath = false}) {
                       return ref
                           .read(fileExplorerProvider.notifier)
@@ -151,7 +154,13 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: BreadcrumbWidget(
               path: currentState.currentPath,
-              loadContent: notifier.loadAllContentOfPath,
+              currentPath: currentState.currentPath,
+              loadContent: (path) {
+                final freshNotifier = ref.read(fileExplorerProvider.notifier);
+                if (freshNotifier.mounted) {
+                  freshNotifier.loadAllContentOfPath(path);
+                }
+              },
             ),
           ),
       ],

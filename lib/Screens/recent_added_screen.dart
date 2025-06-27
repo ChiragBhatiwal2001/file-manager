@@ -67,6 +67,7 @@ class _RecentAddedScreenState extends State<RecentAddedScreen> {
     MediaType.audio: Icons.music_note,
     MediaType.document: Icons.insert_drive_file,
     MediaType.apk: Icons.android,
+    MediaType.archive: Icons.archive,
   };
 
   @override

@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:file_manager/Providers/hide_file_folder_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_manager/Utils/MediaUtils.dart';
@@ -13,15 +14,9 @@ import 'package:path/path.dart' as p;
 
 class FileListTile extends ConsumerStatefulWidget {
   final String path;
-  final StateNotifierProvider<FileExplorerNotifier, FileExplorerState> providerInstance;
   final bool isDrag;
 
-  const FileListTile({
-    super.key,
-    required this.path,
-    required this.providerInstance,
-    this.isDrag = false,
-  });
+  const FileListTile({super.key, required this.path, this.isDrag = false});
 
   @override
   ConsumerState<FileListTile> createState() => _FileListTileState();
@@ -62,30 +57,38 @@ class _FileListTileState extends ConsumerState<FileListTile> {
     final iconData = MediaUtils.getIconForMedia(
       MediaUtils.getMediaTypeFromExtension(widget.path),
     );
-
+    final isHidden = ref
+        .watch(hiddenPathsProvider)
+        .hiddenPaths
+        .contains(widget.path);
     final selection = ref.watch(selectionProvider);
 
     return ListTile(
       key: ValueKey(widget.path),
-      title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
+      title: Text(
+        fileName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: isHidden ? Colors.blueGrey : null),
+      ),
       subtitle: _metadata != null
           ? Text(
-        "${_metadata!['Size']} | ${_metadata!['Modified']}",
-        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-      )
+              "${_metadata!['Size']} | ${_metadata!['Modified']}",
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            )
           : const Text("Loading..."),
       leading: widget.isDrag
           ? null
           : _thumbnail != null
           ? ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.memory(
-          _thumbnail!,
-          width: 40,
-          height: 40,
-          fit: BoxFit.cover,
-        ),
-      )
+              borderRadius: BorderRadius.circular(8),
+              child: Image.memory(
+                _thumbnail!,
+                width: 40,
+                height: 40,
+                fit: BoxFit.cover,
+              ),
+            )
           : CircleAvatar(child: Icon(iconData)),
       trailing: _buildTrailing(context, selection),
       onTap: () {
@@ -120,7 +123,7 @@ class _FileListTileState extends ConsumerState<FileListTile> {
             builder: (context) => BottomSheetForSingleFileOperation(
               path: widget.path,
               loadAgain: ref
-                  .read(widget.providerInstance.notifier)
+                  .read(fileExplorerProvider.notifier)
                   .loadAllContentOfPath,
             ),
           );

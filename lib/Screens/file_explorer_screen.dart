@@ -19,6 +19,9 @@ class FileExplorerScreen extends ConsumerStatefulWidget {
 }
 
 class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> {
+
+  String? _previousViewMode;
+
   @override
   void initState() {
     super.initState();
@@ -29,15 +32,23 @@ class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> {
     });
   }
 
+
   @override
   Widget build(BuildContext context) {
-    final currentPath = ref.watch(currentPathProvider);
     final explorerState = ref.watch(fileExplorerProvider);
-    final notifier = ref.read(fileExplorerProvider.notifier);
     final selectionState = ref.watch(selectionProvider);
     final selectionNotifier = ref.read(selectionProvider.notifier);
     final viewMode = ref.watch(fileViewModeProvider);
+    final viewModeNotifier = ref.read(fileViewModeProvider.notifier);
     final isInDragMode = ref.watch(manualDragModeProvider);
+
+    if (isInDragMode && viewMode == "Grid View") {
+      _previousViewMode = "Grid View";
+      viewModeNotifier.setMode("List View");
+    } else if (!isInDragMode && _previousViewMode == "Grid View") {
+      viewModeNotifier.setMode("Grid View");
+      _previousViewMode = null;
+    }
 
     return PopScope(
       canPop: false,
@@ -48,6 +59,7 @@ class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> {
         }
         if (!didPop && explorerState.currentPath != Constant.internalPath) {
           if (!mounted) return;
+          final notifier = ref.read(fileExplorerProvider.notifier);
           await notifier.goBack(context);
         } else if (!didPop &&
             explorerState.currentPath == Constant.internalPath) {
@@ -60,19 +72,21 @@ class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> {
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(104.0),
           child: FileExplorerAppBar(
-            providerInstance: fileExplorerProvider,
-            currentPath: currentPath,
+            currentPath: explorerState.currentPath,
           ),
         ),
         body: explorerState.isLoading
             ? const Center(child: CircularProgressIndicator())
             : viewMode == "List View"
-            ? FileExplorerBody(providerInstance: fileExplorerProvider)
+            ? FileExplorerBody()
             : FileExplorerGridBody(providerInstance: fileExplorerProvider),
         floatingActionButton: isInDragMode
             ? FloatingActionButton(
           onPressed: () {
             ref.read(manualDragModeProvider.notifier).state = false;
+
+            final path = ref.read(currentPathProvider);
+            ref.read(fileExplorerProvider.notifier).loadAllContentOfPath(path);
           },
           child: Icon(Icons.clear),
         )

@@ -58,7 +58,7 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
       ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'],
       ['.mp4', '.mkv', '.avi', '.3gp', '.mov'],
       ['.mp3', '.wav', '.aac', '.m4a', '.ogg'],
-      ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt'],
+      ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt','.dat'],
       ['.apk'],
     ];
 

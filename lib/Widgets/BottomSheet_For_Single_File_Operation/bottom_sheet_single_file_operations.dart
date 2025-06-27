@@ -112,7 +112,7 @@ class _BottomSheetForSingleFileOperationState
                               } else {
                                 await notifier.hidePath(widget.path);
                               }
-                              if (context.mounted) Navigator.pop(context);
+                              if (context.mounted) Navigator.pop(context,true);
                               widget.loadAgain(p.dirname(widget.path));
                             },
                           ),
@@ -128,7 +128,10 @@ class _BottomSheetForSingleFileOperationState
                                 final result = await SharePlus.instance.share(
                                   params,
                                 );
-                                if (result.status ==
+                                if (result.status == ShareResultStatus.success && context.mounted) {
+                                  Navigator.pop(context, true);
+                                }
+                                else if (result.status ==
                                         ShareResultStatus.dismissed &&
                                     context.mounted) {
                                   ScaffoldMessenger.of(

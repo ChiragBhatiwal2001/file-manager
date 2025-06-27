@@ -1,3 +1,4 @@
+import 'package:file_manager/Helpers/get_unique_name.dart';
 import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/file_list_widget.dart';
 import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/folder_list_widget.dart';
 import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/paste_button.dart';
@@ -17,6 +18,7 @@ import 'dart:isolate';
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:path/path.dart' as p;
 
 class BottomSheetForPasteOperation extends ConsumerStatefulWidget {
   final Set<String>? selectedPaths;
@@ -79,99 +81,45 @@ class _BottomSheetForPasteOperationState
     onSuccess: () => _loadContent(currentPath),
   );
 
-  Future<String?> _checkNameConflicts() async {
-    List<String> existingNames = [
-      ...folders.map((e) => e.path.split("/").last),
-      ...files.map((e) => e.path.split("/").last),
-    ];
-
-    if (widget.isSingleOperation && widget.selectedSinglePath != null) {
-      String name = widget.selectedSinglePath!.split("/").last;
-      if (existingNames.contains(name)) return name;
-    }
-
-    if (widget.selectedPaths != null) {
-      for (String path in widget.selectedPaths!) {
-        String name = path.split("/").last;
-        if (existingNames.contains(name)) return name;
-      }
-    }
-
-    return null;
-  }
-
   Future<void> _handlePaste() async {
     if (_isPasting) return;
     setState(() => _isPasting = true);
-
-    final isSameDirectory =
-        widget.isSingleOperation &&
-        widget.selectedSinglePath != null &&
-        Directory(widget.selectedSinglePath!).parent.path == currentPath;
-    final isSameMulti =
-        widget.selectedPaths != null &&
-        widget.selectedPaths!.every(
-          (e) => Directory(e).parent.path == currentPath,
-        );
-
-    if (isSameDirectory || isSameMulti) {
-      if (!context.mounted) return;
-      await showDialog(
-        context: context,
-        builder: (_) => const AlertDialog(
-          title: Text("Invalid Operation"),
-          content: Text("You can't paste into the same directory."),
-        ),
-      );
-      setState(() => _isPasting = false);
-      return;
-    }
-
-    final conflictName = await _checkNameConflicts();
-    if (conflictName != null) {
-      if (!context.mounted) return;
-      await showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text("Conflict Detected"),
-          content: Text(
-            "A file or folder named \"$conflictName\" already exists in this location.",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("OK"),
-            ),
-          ],
-        ),
-      );
-      setState(() => _isPasting = false);
-      return;
-    }
 
     final rootContext = Navigator.of(context, rootNavigator: true).context;
 
     await showProgressDialog(
       context: rootContext,
       operation: (onProgress) async {
-        final fileOps = FileOperations();
         try {
           final fileOps = FileOperations();
 
           if (widget.selectedSinglePath != null) {
+            String destFileName = p.basename(widget.selectedSinglePath!);
+            String destPath = p.join(currentPath, destFileName);
+            if (await File(destPath).exists() || await Directory(destPath).exists()) {
+              destPath = await getUniqueDestinationPath(destPath);
+              destFileName = p.basename(destPath);
+            }
             await fileOps.pasteFileToDestination(
               widget.isCopy,
-              currentPath,
+              p.dirname(destPath),
               widget.selectedSinglePath!,
               onProgress: onProgress,
+              newName: destFileName
             );
-          } else if (widget.selectedPaths != null && widget.selectedPaths!.isNotEmpty) {
-            // If only one path, handle it directly without isolate
+          } else if (widget.selectedPaths != null &&
+              widget.selectedPaths!.isNotEmpty) {
+
             if (widget.selectedPaths!.length == 1) {
+              String src = widget.selectedPaths!.first;
+              String destPath = p.join(currentPath, p.basename(src));
+              if (await FileSystemEntity.type(destPath) != FileSystemEntityType.notFound) {
+                destPath = await getUniqueDestinationPath(destPath);
+              }
               await fileOps.pasteFileToDestination(
                 widget.isCopy,
-                currentPath,
-                widget.selectedPaths!.first,
+                p.dirname(destPath),
+                src,
                 onProgress: onProgress,
               );
             } else {
@@ -195,7 +143,6 @@ class _BottomSheetForPasteOperationState
 
             widget.selectedPaths!.clear();
           }
-
         } catch (e) {
           if (context.mounted) {
             await showDialog(
@@ -214,15 +161,13 @@ class _BottomSheetForPasteOperationState
           }
         }
       },
-    ).then((result) {
-      Fluttertoast.showToast(
-        msg: result != null
-            ? "${widget.isCopy ? 'Copy' : 'Move'} operation failed"
-            : "${widget.isCopy ? 'Copy' : 'Move'} operation successful",
-      );
-    });
+    );
+    if (!mounted) return;
 
-    if (mounted) Navigator.of(context).pop(true);
+    Fluttertoast.showToast(
+    msg: "${widget.isCopy ? 'Copy' : 'Move'} operation completed",
+    );
+    Navigator.pop(context,currentPath);
     setState(() => _isPasting = false);
   }
 
@@ -241,7 +186,7 @@ class _BottomSheetForPasteOperationState
               onBack: _goBack,
               onCreate: _createFolder,
             ),
-            BreadcrumbWidget(path: currentPath, loadContent: _loadContent),
+            BreadcrumbWidget(path: currentPath,currentPath: currentPath, loadContent: _loadContent),
             if (folders.isEmpty && files.isEmpty)
               const Expanded(child: ScreenEmptyWidget())
             else

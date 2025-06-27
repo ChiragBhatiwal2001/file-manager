@@ -21,8 +21,22 @@ class FavoritesSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final favorites = ref.watch(favoritesProvider);
+    final favoritesNotifier = ref.read(favoritesProvider.notifier);
     final limitProvider = ref.watch(limitSettingsProvider).favoriteLimit;
-    final topFavorites = favorites.take(limitProvider).toList();
+
+    final validFavorites = favorites.where((path) {
+      return FileSystemEntity.typeSync(path) != FileSystemEntityType.notFound;
+    }).toList();
+
+    final invalidPaths = favorites.toSet().difference(validFavorites.toSet());
+
+    if (invalidPaths.isNotEmpty) {
+      Future.microtask(() async {
+        await favoritesNotifier.removeFavorites(invalidPaths.toList());
+      });
+    }
+
+    final topFavorites = validFavorites.take(limitProvider).toList();
     final theme = Theme.of(context);
 
     return Card(
@@ -122,19 +136,20 @@ class FavoritesSection extends ConsumerWidget {
                 ),
               ),
             const SizedBox(height: 10),
-            if(!favorites.isEmpty)
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () async {
-                  await onShowMore();
-                },
-                child: const Text("Show More"),
+            if (validFavorites.isNotEmpty)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    await onShowMore();
+                  },
+                  child: const Text("Show More"),
+                ),
               ),
-            ),
           ],
         ),
       ),
     );
   }
+
 }

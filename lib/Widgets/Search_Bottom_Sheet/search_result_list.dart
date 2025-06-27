@@ -57,13 +57,16 @@ class SearchResultList extends StatelessWidget {
                   ),
                 );
               } else {
-                return CircleAvatar(
-                  child: Icon(
-                    MediaUtils.getIconForMedia(
-                      MediaUtils.getMediaTypeFromExtension(file.path),
-                    ),
-                  ),
-                );
+                if (FileSystemEntity.isDirectorySync(file.path)) {
+                  return const CircleAvatar(child: Icon(Icons.folder));
+                } else {
+                  final mediaType = MediaUtils.getMediaTypeFromExtension(
+                    file.path,
+                  );
+                  return CircleAvatar(
+                    child: Icon(MediaUtils.getIconForMedia(mediaType)),
+                  );
+                }
               }
             },
           ),

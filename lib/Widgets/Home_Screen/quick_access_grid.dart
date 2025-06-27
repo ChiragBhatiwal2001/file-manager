@@ -21,7 +21,6 @@ class QuickAccessGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // Optionally, show a loading indicator if internalStorage is null
     if (internalStorage == null) {
       return const Center(child: CircularProgressIndicator());
     }

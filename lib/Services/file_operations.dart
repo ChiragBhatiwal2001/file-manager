@@ -9,8 +9,9 @@ class FileOperations {
       String destination,
       String source, {
         void Function(double progress)? onProgress,
+        String? newName, // <--- add this
       }) async {
-    final name = p.basename(source);
+    final name = newName ?? p.basename(source);
     final targetPath = p.join(destination, name);
     final type = FileSystemEntity.typeSync(source);
 

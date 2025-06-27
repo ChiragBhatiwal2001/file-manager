@@ -5,11 +5,13 @@ class BreadcrumbWidget extends StatefulWidget {
   const BreadcrumbWidget({
     super.key,
     required this.path,
+    required this.currentPath,
     required this.loadContent,
   });
 
   final String path;
   final void Function(String path) loadContent;
+  final String currentPath;
 
   @override
   State<StatefulWidget> createState() => _BreadcrumbWidget();
@@ -90,7 +92,9 @@ class _BreadcrumbWidget extends State<BreadcrumbWidget> {
               children: [
                 GestureDetector(
                   onTap: () {
-                    widget.loadContent(breadcrumbList[index]);
+                    if (breadcrumbList[index] != widget.currentPath) {
+                      widget.loadContent(breadcrumbList[index]);
+                    }
                   },
                   child: Text(
                     breadcrumbNames[index],

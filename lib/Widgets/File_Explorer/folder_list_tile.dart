@@ -5,23 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_manager/Services/get_meta_data.dart';
 import 'package:file_manager/Providers/file_explorer_notifier.dart';
-import 'package:file_manager/Providers/file_explorer_state_model.dart';
 import 'package:file_manager/Providers/selction_notifier.dart';
 import 'package:file_manager/Widgets/BottomSheet_For_Single_File_Operation/bottom_sheet_single_file_operations.dart';
 import 'package:path/path.dart' as p;
 
 class FolderListTile extends ConsumerStatefulWidget {
   final String path;
-  final StateNotifierProvider<FileExplorerNotifier, FileExplorerState>
-  providerInstance;
+
   final bool isDrag;
 
-  const FolderListTile({
-    super.key,
-    required this.path,
-    this.isDrag = false,
-    required this.providerInstance,
-  });
+  const FolderListTile({super.key, required this.path, this.isDrag = false});
 
   @override
   ConsumerState<FolderListTile> createState() => _FolderListTileState();
@@ -51,10 +44,20 @@ class _FolderListTileState extends ConsumerState<FolderListTile> {
     try {
       final dir = Directory(widget.path);
       if (await dir.exists()) {
-        final list = await dir.list().toList();
+        final hiddenState = ref.read(hiddenPathsProvider);
+        final showHidden = hiddenState.showHidden;
+        final hiddenPaths = hiddenState.hiddenPaths;
+
+        final list = await dir.list(recursive: false).toList();
+
+        final visibleList = list.where((entity) {
+          if (showHidden) return true;
+          return !hiddenPaths.contains(entity.path);
+        }).toList();
+
         if (mounted) {
           setState(() {
-            _contentCount = list.length;
+            _contentCount = visibleList.length;
           });
         }
       }
@@ -69,7 +72,6 @@ class _FolderListTileState extends ConsumerState<FolderListTile> {
         .contains(widget.path);
     final folderName = p.basename(widget.path);
     final selection = ref.watch(selectionProvider);
-    final notifier = ref.read(widget.providerInstance.notifier);
 
     return ListTile(
       key: ValueKey(widget.path),
@@ -81,7 +83,7 @@ class _FolderListTileState extends ConsumerState<FolderListTile> {
       ),
       subtitle: _metadata != null
           ? Text(
-              "$_contentCount items | ${_metadata!['Modified']}",
+              "${_contentCount ?? 0} items | ${_metadata!['Modified']}",
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             )
           : const Text("Loading..."),
@@ -91,13 +93,22 @@ class _FolderListTileState extends ConsumerState<FolderListTile> {
               child: Icon(Icons.folder, color: isHidden ? Colors.grey : null),
             ),
       trailing: _buildTrailing(context, selection),
-      onTap: () {
+      onTap: () async {
+        if (!mounted) return;
+
         if (selection.isSelectionMode) {
           ref.read(selectionProvider.notifier).toggleSelection(widget.path);
         } else {
-          notifier.loadAllContentOfPath(widget.path);
+          try {
+            await ref
+                .read(fileExplorerProvider.notifier)
+                .loadAllContentOfPath(widget.path);
+          } catch (e) {
+            debugPrint("Safe fallback — provider might be disposed: $e");
+          }
         }
       },
+
       onLongPress: () {
         if (!widget.isDrag) {
           ref.read(selectionProvider.notifier).toggleSelection(widget.path);
@@ -117,16 +128,21 @@ class _FolderListTileState extends ConsumerState<FolderListTile> {
     } else {
       return IconButton(
         icon: const Icon(Icons.more_vert),
-        onPressed: () {
-          showModalBottomSheet(
+        onPressed: () async {
+          final result = await showModalBottomSheet(
             context: context,
             builder: (context) => BottomSheetForSingleFileOperation(
               path: widget.path,
               loadAgain: ref
-                  .read(widget.providerInstance.notifier)
+                  .read(fileExplorerProvider.notifier)
                   .loadAllContentOfPath,
             ),
           );
+          if (result == true && mounted) {
+            ref
+                .read(fileExplorerProvider.notifier)
+                .loadAllContentOfPath(p.dirname(widget.path));
+          }
         },
       );
     }

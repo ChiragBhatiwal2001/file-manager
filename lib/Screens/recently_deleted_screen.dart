@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:file_manager/Services/recycler_bin.dart';
 import 'package:file_manager/Services/thumbnail_service.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:path/path.dart' as p;
 
 class RecentlyDeletedScreen extends StatefulWidget {
@@ -35,39 +36,49 @@ class _RecentlyDeletedScreenState extends State<RecentlyDeletedScreen> {
   }
 
   Future<void> _deleteItem(String trashedPath) async {
-    final confirmed = await _showConfirmationDialog("Delete Permanently", "Are you sure?");
+    final confirmed = await _showConfirmationDialog(
+      "Delete Permanently",
+      "Are you sure?",
+    );
     if (confirmed) {
       await RecentlyDeletedManager().permanentlyDelete(trashedPath);
       await _loadDeletedItems();
+      Fluttertoast.showToast(
+        msg: "${p.basename(trashedPath)} is permanently deleted",
+      );
     }
   }
 
   Future<void> _deleteAllItems() async {
-    final confirmed = await _showConfirmationDialog("Delete All", "Delete all items permanently?");
+    final confirmed = await _showConfirmationDialog(
+      "Delete All",
+      "Delete all items permanently?",
+    );
     if (confirmed) {
       await RecentlyDeletedManager().deleteAll();
       await _loadDeletedItems();
+      Fluttertoast.showToast(msg: "All Items Deleted Permanently");
     }
   }
 
   Future<bool> _showConfirmationDialog(String title, String message) async {
     return (await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("No"),
+          context: context,
+          builder: (_) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("No"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text("Yes"),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Yes"),
-          ),
-        ],
-      ),
-    )) ??
+        )) ??
         false;
   }
 
@@ -90,16 +101,24 @@ class _RecentlyDeletedScreenState extends State<RecentlyDeletedScreen> {
   Widget _buildListTile(Map<String, dynamic> item) {
     final trashedPath = item['trashedPath'];
     final originalPath = item['originalPath'];
-    final isDir = FileSystemEntity.typeSync(trashedPath) == FileSystemEntityType.directory;
+    final isDir =
+        FileSystemEntity.typeSync(trashedPath) ==
+        FileSystemEntityType.directory;
 
     return ListTile(
       leading: FutureBuilder<Uint8List?>(
         future: ThumbnailService.getThumbnail(trashedPath),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
+          if (snapshot.connectionState == ConnectionState.done &&
+              snapshot.hasData) {
             return ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.memory(snapshot.data!, width: 40, height: 40, fit: BoxFit.cover),
+              child: Image.memory(
+                snapshot.data!,
+                width: 40,
+                height: 40,
+                fit: BoxFit.cover,
+              ),
             );
           }
 
@@ -115,17 +134,28 @@ class _RecentlyDeletedScreenState extends State<RecentlyDeletedScreen> {
         },
       ),
       title: Text(p.basename(originalPath)),
-      subtitle: Text("From: $originalPath", maxLines: 2, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        "From: $originalPath",
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             icon: const Icon(Icons.restore),
-            onPressed: () => _restoreItem(trashedPath),
+            onPressed: () {
+              _restoreItem(trashedPath);
+              Fluttertoast.showToast(
+                msg: "${p.basename(trashedPath)} is Restored",
+              );
+            },
           ),
           IconButton(
             icon: const Icon(Icons.delete_forever),
-            onPressed: () => _deleteItem(trashedPath),
+            onPressed: () {
+              _deleteItem(trashedPath);
+            },
           ),
         ],
       ),
@@ -136,23 +166,29 @@ class _RecentlyDeletedScreenState extends State<RecentlyDeletedScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Recycle Bin", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          "Recycle Bin",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         leading: BackButton(),
         actions: [
           if (deletedItems.isNotEmpty)
             TextButton.icon(
               icon: const Icon(Icons.delete_forever_rounded),
               label: const Text("Delete All"),
-              onPressed: _deleteAllItems,
+              onPressed: () {
+                _deleteAllItems();
+
+              },
             ),
         ],
       ),
       body: deletedItems.isEmpty
           ? _buildEmptyState()
           : ListView.builder(
-        itemCount: deletedItems.length,
-        itemBuilder: (_, index) => _buildListTile(deletedItems[index]),
-      ),
+              itemCount: deletedItems.length,
+              itemBuilder: (_, index) => _buildListTile(deletedItems[index]),
+            ),
     );
   }
 }

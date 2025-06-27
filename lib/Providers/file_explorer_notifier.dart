@@ -109,8 +109,7 @@ class FileExplorerNotifier extends StateNotifier<FileExplorerState> {
 
 final fileExplorerProvider =
 StateNotifierProvider<FileExplorerNotifier, FileExplorerState>((ref) {
-  final initialPath = ref.watch(currentPathProvider);
-  return FileExplorerNotifier(initialPath, ref);
+  return FileExplorerNotifier(Constant.internalPath!, ref);
 });
 
 final currentPathProvider = StateProvider<String>((ref) {
