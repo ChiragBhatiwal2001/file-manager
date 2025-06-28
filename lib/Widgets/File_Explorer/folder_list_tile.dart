@@ -43,25 +43,47 @@ class _FolderListTileState extends ConsumerState<FolderListTile> {
   void _loadContentCount() async {
     try {
       final dir = Directory(widget.path);
-      if (await dir.exists()) {
-        final hiddenState = ref.read(hiddenPathsProvider);
-        final showHidden = hiddenState.showHidden;
-        final hiddenPaths = hiddenState.hiddenPaths;
+      if (!await dir.exists()) return;
 
-        final list = await dir.list(recursive: false).toList();
+      final hiddenState = ref.read(hiddenPathsProvider);
+      final showHidden = hiddenState.showHidden;
+      final hiddenPaths = hiddenState.hiddenPaths;
 
-        final visibleList = list.where((entity) {
-          if (showHidden) return true;
-          return !hiddenPaths.contains(entity.path);
-        }).toList();
+      final List<FileSystemEntity> rawList = await dir
+          .list(recursive: false)
+          .toList();
 
-        if (mounted) {
-          setState(() {
-            _contentCount = visibleList.length;
-          });
+      final visibleList = rawList.where((entity) {
+        final path = entity.path;
+        final name = p.basename(path);
+
+        // ✅ 1. Skip system/hidden entries
+        if (!showHidden && name.startsWith('.')) return false;
+
+        // ✅ 2. Skip if app-marked as hidden
+        if (!showHidden && hiddenPaths.contains(path)) return false;
+
+        // ✅ 3. Skip not-found entries (broken symlinks etc.)
+        try {
+          if (FileSystemEntity.typeSync(path) ==
+              FileSystemEntityType.notFound) {
+            return false;
+          }
+        } catch (_) {
+          return false;
         }
+
+        return true;
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _contentCount = visibleList.length;
+        });
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint("Error while counting visible contents of ${widget.path}: $e");
+    }
   }
 
   @override

@@ -57,12 +57,16 @@ class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> {
           selectionNotifier.clearSelection();
           return;
         }
-        if (!didPop && explorerState.currentPath != Constant.internalPath) {
+
+        final currentPath = explorerState.currentPath;
+        final rootPath = widget.initialPath ?? Constant.internalPath!;
+
+        if (!didPop && currentPath != rootPath) {
           if (!mounted) return;
           final notifier = ref.read(fileExplorerProvider.notifier);
           await notifier.goBack(context);
         } else if (!didPop &&
-            explorerState.currentPath == Constant.internalPath) {
+            currentPath == rootPath) {
           if (Navigator.of(context).canPop()) {
             Navigator.of(context).pop();
           }
@@ -72,7 +76,7 @@ class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> {
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(104.0),
           child: FileExplorerAppBar(
-            currentPath: explorerState.currentPath,
+            currentPath: widget.initialPath!,
           ),
         ),
         body: explorerState.isLoading
