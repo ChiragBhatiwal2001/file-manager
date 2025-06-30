@@ -119,6 +119,7 @@ class _FileListTileState extends ConsumerState<FileListTile> {
         icon: const Icon(Icons.more_vert),
         onPressed: () {
           showModalBottomSheet(
+            isScrollControlled: true,
             context: context,
             builder: (context) => BottomSheetForSingleFileOperation(
               path: widget.path,

@@ -104,6 +104,7 @@ class _QuickAccessListItemState extends ConsumerState<QuickAccessListItem> {
           : IconButton(
               onPressed: () {
                 showModalBottomSheet(
+                  isScrollControlled: true,
                   context: context,
                   builder: (context) => BottomSheetForSingleFileOperation(
                     path: widget.file.path,

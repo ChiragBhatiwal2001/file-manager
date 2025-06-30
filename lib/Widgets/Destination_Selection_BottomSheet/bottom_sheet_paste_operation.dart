@@ -3,7 +3,6 @@ import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/file_list
 import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/folder_list_widget.dart';
 import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/paste_button.dart';
 import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/paste_sheet_header.dart';
-import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/paste_worker.dart';
 import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/show_progress_dialog.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,7 +13,6 @@ import 'package:file_manager/Helpers/add_folder_dialog.dart';
 import 'package:file_manager/Services/path_loading_operations.dart';
 import 'package:file_manager/Services/file_operations.dart';
 import 'dart:io';
-import 'dart:isolate';
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -96,7 +94,8 @@ class _BottomSheetForPasteOperationState
           if (widget.selectedSinglePath != null) {
             String destFileName = p.basename(widget.selectedSinglePath!);
             String destPath = p.join(currentPath, destFileName);
-            if (await File(destPath).exists() || await Directory(destPath).exists()) {
+            if (await File(destPath).exists() ||
+                await Directory(destPath).exists()) {
               destPath = await getUniqueDestinationPath(destPath);
               destFileName = p.basename(destPath);
             }
@@ -105,15 +104,15 @@ class _BottomSheetForPasteOperationState
               p.dirname(destPath),
               widget.selectedSinglePath!,
               onProgress: onProgress,
-              newName: destFileName
+              newName: destFileName,
             );
           } else if (widget.selectedPaths != null &&
               widget.selectedPaths!.isNotEmpty) {
-
             if (widget.selectedPaths!.length == 1) {
               String src = widget.selectedPaths!.first;
               String destPath = p.join(currentPath, p.basename(src));
-              if (await FileSystemEntity.type(destPath) != FileSystemEntityType.notFound) {
+              if (await FileSystemEntity.type(destPath) !=
+                  FileSystemEntityType.notFound) {
                 destPath = await getUniqueDestinationPath(destPath);
               }
               await fileOps.pasteFileToDestination(
@@ -123,25 +122,14 @@ class _BottomSheetForPasteOperationState
                 onProgress: onProgress,
               );
             } else {
-              final receivePort = ReceivePort();
-              await Isolate.spawn(pasteWorker, {
-                'paths': widget.selectedPaths!.toList(),
-                'destination': currentPath,
-                'isCopy': widget.isCopy,
-                'sendPort': receivePort.sendPort,
-              });
-
-              await for (var message in receivePort) {
-                if (message is double) {
-                  onProgress(message);
-                } else if (message == 'done') {
-                  receivePort.close();
-                  break;
-                }
-              }
+              await fileOps.pasteMultipleFilesInBackground(
+                paths: widget.selectedPaths!.toList(),
+                destination: currentPath,
+                isCopy: widget.isCopy,
+                onProgress: onProgress,
+              );
+              widget.selectedPaths!.clear();
             }
-
-            widget.selectedPaths!.clear();
           }
         } catch (e) {
           if (context.mounted) {
@@ -165,9 +153,9 @@ class _BottomSheetForPasteOperationState
     if (!mounted) return;
 
     Fluttertoast.showToast(
-    msg: "${widget.isCopy ? 'Copy' : 'Move'} operation completed",
+      msg: "${widget.isCopy ? 'Copy' : 'Move'} operation completed",
     );
-    Navigator.pop(context,currentPath);
+    Navigator.pop(context, currentPath);
     setState(() => _isPasting = false);
   }
 
@@ -186,7 +174,11 @@ class _BottomSheetForPasteOperationState
               onBack: _goBack,
               onCreate: _createFolder,
             ),
-            BreadcrumbWidget(path: currentPath,currentPath: currentPath, loadContent: _loadContent),
+            BreadcrumbWidget(
+              path: currentPath,
+              currentPath: currentPath,
+              loadContent: _loadContent,
+            ),
             if (folders.isEmpty && files.isEmpty)
               const Expanded(child: ScreenEmptyWidget())
             else

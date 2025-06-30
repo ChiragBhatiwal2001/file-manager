@@ -140,7 +140,7 @@ class RecentlyDeletedManager {
       }
     }
 
-    // Clear metadata
+    // Clear metadata --> fresh file.
     await _writeMetadata([]);
   }
 

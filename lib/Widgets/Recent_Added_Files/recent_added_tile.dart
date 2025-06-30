@@ -153,6 +153,7 @@ class _RecentAddedTileState extends ConsumerState<RecentAddedTile> {
                                 icon: const Icon(Icons.more_vert, size: 18),
                                 onPressed: () {
                                   showModalBottomSheet(
+                                    isScrollControlled: true,
                                     context: context,
                                     builder: (context) =>
                                         BottomSheetForSingleFileOperation(
@@ -215,6 +216,7 @@ class _RecentAddedTileState extends ConsumerState<RecentAddedTile> {
                     icon: const Icon(Icons.more_vert),
                     onPressed: () async {
                       await showModalBottomSheet(
+                        isScrollControlled: true,
                         context: context,
                         builder: (context) => BottomSheetForSingleFileOperation(
                           path: file.path,

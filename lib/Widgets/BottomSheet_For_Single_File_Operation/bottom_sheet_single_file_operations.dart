@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'package:file_manager/Helpers/get_unique_name.dart';
+import 'package:file_manager/Services/zip_unzip_item.dart';
+import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/show_progress_dialog.dart';
 import 'package:path/path.dart' as p;
 import 'package:file_manager/Providers/hide_file_folder_notifier.dart';
 import 'package:file_manager/Services/get_meta_data.dart';
@@ -48,6 +51,7 @@ class _BottomSheetForSingleFileOperationState
 
   @override
   Widget build(BuildContext context) {
+    final isZip = widget.path.toLowerCase().endsWith('.zip');
     final theme = Theme.of(context);
     final isDirectory = FileSystemEntity.isDirectorySync(widget.path);
     final isHidden = ref
@@ -56,7 +60,7 @@ class _BottomSheetForSingleFileOperationState
 
     return DraggableScrollableSheet(
       expand: false,
-      initialChildSize: isDirectory ? 0.9 : 1,
+      initialChildSize: isDirectory ? 0.55 : 0.63,
       builder: (context, scrollController) {
         return isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -112,7 +116,7 @@ class _BottomSheetForSingleFileOperationState
                               } else {
                                 await notifier.hidePath(widget.path);
                               }
-                              if (context.mounted) Navigator.pop(context,true);
+                              if (context.mounted) Navigator.pop(context, true);
                               widget.loadAgain(p.dirname(widget.path));
                             },
                           ),
@@ -128,10 +132,11 @@ class _BottomSheetForSingleFileOperationState
                                 final result = await SharePlus.instance.share(
                                   params,
                                 );
-                                if (result.status == ShareResultStatus.success && context.mounted) {
+                                if (result.status ==
+                                        ShareResultStatus.success &&
+                                    context.mounted) {
                                   Navigator.pop(context, true);
-                                }
-                                else if (result.status ==
+                                } else if (result.status ==
                                         ShareResultStatus.dismissed &&
                                     context.mounted) {
                                   ScaffoldMessenger.of(
@@ -140,6 +145,51 @@ class _BottomSheetForSingleFileOperationState
                                 }
                               },
                             ),
+                          if (!isDirectory) Divider(),
+                          // _OptionRow(
+                          //   icon: isZip ? Icons.unarchive : Icons.archive,
+                          //   label: isZip ? "Unzip" : "Compress",
+                          //   onTap: () async {
+                          //     final path = widget.path;
+                          //     final parentDir = p.dirname(path);
+                          //     final baseName = p.basenameWithoutExtension(path);
+                          //     final isZip = path.toLowerCase().endsWith('.zip');
+                          //
+                          //     await showProgressDialog(
+                          //       context: context,
+                          //       operation: (onProgress) async {
+                          //         try {
+                          //           if (isZip) {
+                          //             final unzipDir = await getUniqueDestinationPath(
+                          //               p.join(parentDir, baseName),
+                          //             );
+                          //             await unzipFileUsingArchive(
+                          //               zipPath: path,
+                          //               outputDirectory: unzipDir,
+                          //               onProgress: onProgress,
+                          //             );
+                          //           } else {
+                          //             final outputZipPath = await getUniqueDestinationPath(
+                          //               p.join(parentDir, "$baseName.zip"),
+                          //             );
+                          //             await zipUsingArchive(
+                          //               inputPath: path,
+                          //               outputZipPath: outputZipPath,
+                          //               onProgress: onProgress,
+                          //             );
+                          //           }
+                          //
+                          //           widget.loadAgain(parentDir);
+                          //         } catch (e) {
+                          //           print("Compression/Uncompression failed: $e");
+                          //         }
+                          //       },
+                          //     );
+                          //
+                          //     if (context.mounted) Navigator.pop(context);
+                          //   },
+                          //
+                          // ),
                         ],
                       ),
                     ),

@@ -150,6 +150,7 @@ class _QuickAccessGridItemState extends ConsumerState<QuickAccessGridItem> {
                           icon: const Icon(Icons.more_vert, size: 18),
                           onPressed: () {
                             showModalBottomSheet(
+                              isScrollControlled: true,
                               context: context,
                               builder: (context) =>
                                   BottomSheetForSingleFileOperation(

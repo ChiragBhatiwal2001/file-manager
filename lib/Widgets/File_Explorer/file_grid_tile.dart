@@ -165,6 +165,7 @@ class _FileGridTileState extends ConsumerState<FileGridTile> {
                       icon: const Icon(Icons.more_vert, size: 20),
                       onPressed: () {
                         showModalBottomSheet(
+                          isScrollControlled: true,
                           context: context,
                           builder: (_) => BottomSheetForSingleFileOperation(
                             path: path,

@@ -9,7 +9,7 @@ class FileOperations {
       String destination,
       String source, {
         void Function(double progress)? onProgress,
-        String? newName, // <--- add this
+        String? newName,
       }) async {
     final name = newName ?? p.basename(source);
     final targetPath = p.join(destination, name);
@@ -71,13 +71,14 @@ class FileOperations {
       'sendPort': receivePort.sendPort,
     });
 
-    receivePort.listen((msg) {
+    await for (var msg in receivePort) {
       if (msg is double) {
         onProgress(msg);
       } else if (msg == 'done') {
         receivePort.close();
+        break;
       }
-    });
+    }
   }
 
   static void _pasteInIsolateEntry(Map<String, dynamic> args) async {
@@ -117,7 +118,6 @@ class FileOperations {
           await output.close();
         } else if (type == FileSystemEntityType.directory) {
           Directory(target).createSync(recursive: true);
-          // Optional: Add recursive folder copy if needed
         }
       } else {
         try {

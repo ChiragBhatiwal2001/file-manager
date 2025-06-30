@@ -8,6 +8,7 @@ Future<void> addFolderDialog({
   required String parentPath,
   required VoidCallback onSuccess,
 }) async {
+  print(parentPath);
   final initialSuggestedPath = await getUniqueDestinationPath("$parentPath/New Folder");
   final suggestedName = p.basename(initialSuggestedPath);
   final controller = TextEditingController(text: suggestedName);

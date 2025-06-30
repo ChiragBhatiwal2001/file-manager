@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:file_manager/Providers/hide_file_folder_notifier.dart';
+import 'package:file_manager/Utils/restricted_files.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_manager/Services/get_meta_data.dart';
@@ -55,23 +56,19 @@ class _FolderListTileState extends ConsumerState<FolderListTile> {
 
       final visibleList = rawList.where((entity) {
         final path = entity.path;
-        final name = p.basename(path);
 
-        // ✅ 1. Skip system/hidden entries
-        if (!showHidden && name.startsWith('.')) return false;
-
-        // ✅ 2. Skip if app-marked as hidden
         if (!showHidden && hiddenPaths.contains(path)) return false;
 
-        // ✅ 3. Skip not-found entries (broken symlinks etc.)
+        FileSystemEntityType type;
         try {
-          if (FileSystemEntity.typeSync(path) ==
-              FileSystemEntityType.notFound) {
-            return false;
-          }
+          type = FileSystemEntity.typeSync(path, followLinks: false);
+          if (type == FileSystemEntityType.notFound) return false;
         } catch (_) {
           return false;
         }
+
+        if (FileFilterUtils.shouldHideEntity(entity, showHidden: showHidden))
+          return false;
 
         return true;
       }).toList();
@@ -152,6 +149,7 @@ class _FolderListTileState extends ConsumerState<FolderListTile> {
         icon: const Icon(Icons.more_vert),
         onPressed: () async {
           final result = await showModalBottomSheet(
+            isScrollControlled: true,
             context: context,
             builder: (context) => BottomSheetForSingleFileOperation(
               path: widget.path,

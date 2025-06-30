@@ -44,12 +44,12 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
     void showAddFolderDialog() {
       addFolderDialog(
         context: context,
-        parentPath: widget.currentPath,
+        parentPath: currentState.currentPath,
         onSuccess: () {
           if (!mounted) return;
           final freshNotifier = ref.read(fileExplorerProvider.notifier);
           if (freshNotifier.mounted) {
-            freshNotifier.loadAllContentOfPath(widget.currentPath);
+            freshNotifier.loadAllContentOfPath(currentState.currentPath);
           }
         },
       );
@@ -102,7 +102,7 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
                   SelectionActionsWidget(
                     onPostAction: (String? path) {
                       if (!mounted) return;
-                      final pathToLoad = path ?? widget.currentPath;
+                      final pathToLoad = path ?? currentState.currentPath;
 
                       final freshNotifier = ref.read(fileExplorerProvider.notifier);
                       if (freshNotifier.mounted) {
