@@ -42,12 +42,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<bool> _requestAllMediaPermissions() async {
     final deviceInfo = DeviceInfoPlugin();
     final androidInfo = await deviceInfo.androidInfo;
-    if (androidInfo.version.sdkInt < 29) {
+    final sdkInt = androidInfo.version.sdkInt;
+
+    if (sdkInt < 29) {
       final status = await Permission.storage.request();
+      return status.isGranted;
+    } else if (sdkInt < 33) {
+      final status = await Permission.manageExternalStorage.request();
       return status.isGranted;
     } else {
       final permissions = [
-        Permission.manageExternalStorage,
         Permission.photos,
         Permission.videos,
         Permission.audio,
@@ -56,6 +60,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return statuses.values.every((status) => status.isGranted);
     }
   }
+
 
   Future<void> getStoragePath() async {
     final path = await ExternalPath.getExternalStorageDirectories();

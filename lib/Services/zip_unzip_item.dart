@@ -1,70 +1,35 @@
 import 'dart:io';
-import 'package:path/path.dart' as p;
 import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 
-Future<void> zipUsingArchive({
-  required String inputPath,
-  required String outputZipPath,
-  void Function(double)? onProgress,
-}) async {
+Future<void> zipFolderCorrectly(String sourcePath, String zipPath) async {
   final archive = Archive();
-  final inputType = FileSystemEntity.typeSync(inputPath);
-  final baseName = p.basename(inputPath);
-  int total = 0;
-  int done = 0;
 
-  if (inputType == FileSystemEntityType.file) {
-    final file = File(inputPath);
-    final bytes = await file.readAsBytes();
-    archive.addFile(ArchiveFile(baseName, bytes.length, bytes));
-    done += bytes.length;
-    onProgress?.call(1.0);
-  } else if (inputType == FileSystemEntityType.directory) {
-    final files = Directory(inputPath).listSync(recursive: true);
-    total = files.whereType<File>().fold(0, (sum, f) => sum + f.lengthSync());
+  final sourceDir = Directory(sourcePath);
 
-    for (final entity in files) {
-      final relPath = p.relative(entity.path, from: inputPath).replaceAll('\\', '/');
-      if (entity is File) {
-        final bytes = await entity.readAsBytes();
-        archive.addFile(ArchiveFile('$baseName/$relPath', bytes.length, bytes));
-        done += bytes.length;
-        onProgress?.call((done / total).clamp(0.0, 1.0));
-      } else if (entity is Directory) {
-        archive.addFile(ArchiveFile('$baseName/$relPath/', 0, []));
-      }
+  if (!await sourceDir.exists()) {
+    print("❌ Source folder doesn't exist.");
+    return;
+  }
+
+  for (final entity in sourceDir.listSync(recursive: true)) {
+    if (entity is File) {
+      final relativePath = entity.path.replaceFirst(sourcePath, '').replaceAll('\\', '/');
+
+      final fileBytes = await entity.readAsBytes();
+
+      final archiveFile = ArchiveFile(relativePath, fileBytes.length, fileBytes);
+      archive.addFile(archiveFile);
+    } else if (entity is Directory) {
+      final relativePath = entity.path.replaceFirst(sourcePath, '').replaceAll('\\', '/');
+      final archiveFile = ArchiveFile.noCompress('$relativePath/', 0, []);
+      archive.addFile(archiveFile);
     }
   }
 
-  final zipBytes = ZipEncoder().encode(archive);
-  final outFile = File(outputZipPath);
-  await outFile.create(recursive: true);
-  await outFile.writeAsBytes(zipBytes!);
-}
+  final outputStream = OutputFileStream(zipPath);
+  ZipEncoder().encode(archive, output: outputStream);
+  await outputStream.close();
 
-Future<void> unzipFileUsingArchive({
-  required String zipPath,
-  required String outputDirectory,
-  void Function(double)? onProgress,
-}) async {
-  final zipBytes = await File(zipPath).readAsBytes();
-  final archive = ZipDecoder().decodeBytes(zipBytes);
-
-  int total = archive.length;
-  int done = 0;
-
-  for (final file in archive) {
-    final filePath = p.join(outputDirectory, file.name);
-    if (file.isFile) {
-      final outFile = File(filePath);
-      await outFile.create(recursive: true);
-      await outFile.writeAsBytes(file.content as List<int>);
-    } else {
-      final dir = Directory(filePath);
-      if (!await dir.exists()) await dir.create(recursive: true);
-    }
-
-    done++;
-    onProgress?.call(done / total);
-  }
+  print("✅ ZIP created at $zipPath");
 }

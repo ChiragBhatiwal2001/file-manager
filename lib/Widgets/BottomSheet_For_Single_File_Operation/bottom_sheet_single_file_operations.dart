@@ -1,7 +1,5 @@
 import 'dart:io';
-import 'package:file_manager/Helpers/get_unique_name.dart';
 import 'package:file_manager/Services/zip_unzip_item.dart';
-import 'package:file_manager/Widgets/Destination_Selection_BottomSheet/show_progress_dialog.dart';
 import 'package:path/path.dart' as p;
 import 'package:file_manager/Providers/hide_file_folder_notifier.dart';
 import 'package:file_manager/Services/get_meta_data.dart';
@@ -146,50 +144,7 @@ class _BottomSheetForSingleFileOperationState
                               },
                             ),
                           if (!isDirectory) Divider(),
-                          // _OptionRow(
-                          //   icon: isZip ? Icons.unarchive : Icons.archive,
-                          //   label: isZip ? "Unzip" : "Compress",
-                          //   onTap: () async {
-                          //     final path = widget.path;
-                          //     final parentDir = p.dirname(path);
-                          //     final baseName = p.basenameWithoutExtension(path);
-                          //     final isZip = path.toLowerCase().endsWith('.zip');
                           //
-                          //     await showProgressDialog(
-                          //       context: context,
-                          //       operation: (onProgress) async {
-                          //         try {
-                          //           if (isZip) {
-                          //             final unzipDir = await getUniqueDestinationPath(
-                          //               p.join(parentDir, baseName),
-                          //             );
-                          //             await unzipFileUsingArchive(
-                          //               zipPath: path,
-                          //               outputDirectory: unzipDir,
-                          //               onProgress: onProgress,
-                          //             );
-                          //           } else {
-                          //             final outputZipPath = await getUniqueDestinationPath(
-                          //               p.join(parentDir, "$baseName.zip"),
-                          //             );
-                          //             await zipUsingArchive(
-                          //               inputPath: path,
-                          //               outputZipPath: outputZipPath,
-                          //               onProgress: onProgress,
-                          //             );
-                          //           }
-                          //
-                          //           widget.loadAgain(parentDir);
-                          //         } catch (e) {
-                          //           print("Compression/Uncompression failed: $e");
-                          //         }
-                          //       },
-                          //     );
-                          //
-                          //     if (context.mounted) Navigator.pop(context);
-                          //   },
-                          //
-                          // ),
                         ],
                       ),
                     ),
