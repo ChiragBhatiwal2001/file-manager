@@ -40,19 +40,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<bool> _requestAllMediaPermissions() async {
     final deviceInfo = DeviceInfoPlugin();
     final androidInfo = await deviceInfo.androidInfo;
-    if (androidInfo.version.sdkInt < 29) {
+    final sdkInt = androidInfo.version.sdkInt;
+
+    if (sdkInt < 23) {
+      return true;
+    }
+
+    if (sdkInt < 29) {
       final status = await Permission.storage.request();
       return status.isGranted;
-    } else {
+    }
+
+    if (sdkInt >= 29 && sdkInt < 33) {
+      final status = await Permission.manageExternalStorage.request();
+      if (status.isGranted) return true;
+      await openAppSettings();
+      return false;
+    }
+
+    if (sdkInt >= 33) {
       final permissions = [
         Permission.manageExternalStorage,
         Permission.photos,
         Permission.videos,
         Permission.audio,
       ];
+
       final statuses = await permissions.request();
-      return statuses.values.every((status) => status.isGranted);
+      final allGranted = statuses.values.every((status) => status.isGranted);
+
+      if (!allGranted) await openAppSettings();
+
+      return allGranted;
     }
+    return false;
   }
 
   Future<void> getStoragePath() async {
