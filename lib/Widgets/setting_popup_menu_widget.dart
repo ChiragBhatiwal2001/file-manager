@@ -35,10 +35,6 @@ class SettingPopupMenuWidget extends ConsumerWidget {
     return PopupMenuButton<String>(
       onSelected: (value) async {
         if (value == "Sorting") {
-          if (onShowSortDialog != null) {
-            await onShowSortDialog!();
-          }
-
           String initialSortBy = "name";
           String initialSortOrder = "asc";
 

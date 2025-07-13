@@ -27,7 +27,6 @@ class QuickAccessGrid extends StatelessWidget {
 
     return SizedBox(
       width: double.infinity,
-      height: 220,
       child: GridView.builder(
         physics: const NeverScrollableScrollPhysics(),
         shrinkWrap: true,

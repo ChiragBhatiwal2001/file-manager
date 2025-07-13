@@ -13,49 +13,25 @@ class FileOperations {
       }) async {
     final name = newName ?? p.basename(source);
     final targetPath = p.join(destination, name);
-    final type = FileSystemEntity.typeSync(source);
+    final receivePort = ReceivePort();
 
-    if (isCopy) {
-      if (type == FileSystemEntityType.file) {
-        final fileSize = await File(source).length();
-        if (fileSize > 500 * 1024 * 1024) {
-          await _copyFileInIsolate(source, targetPath, onProgress);
+    await Isolate.spawn(_singleFileOperationIsolate, {
+      'source': source,
+      'target': targetPath,
+      'isCopy': isCopy,
+      'sendPort': receivePort.sendPort,
+    });
 
-        } else {
-          await _copyFileWithProgress(File(source), File(targetPath), onProgress);
-        }
-      } else if (type == FileSystemEntityType.directory) {
-        final totalSize = await _getTotalSize(Directory(source));
-        double copied = 0;
-        await _copyFolder(
-          Directory(source),
-          Directory(targetPath),
-              (inc) {
-            copied += inc;
-            onProgress?.call(totalSize == 0 ? 1.0 : (copied / totalSize).clamp(0, 1));
-          },
-        );
-      }
-    } else {
-      try {
-        if (type == FileSystemEntityType.directory) {
-          await Directory(source).rename(targetPath);
-        } else if (type == FileSystemEntityType.file) {
-          await File(source).rename(targetPath);
-        }
-      } catch (_) {
-        await pasteFileToDestination(true, destination, source, onProgress: onProgress);
-        if (type == FileSystemEntityType.directory) {
-          await Directory(source).delete(recursive: true);
-        } else if (type == FileSystemEntityType.file) {
-          await File(source).delete();
-        }
+    await for (var msg in receivePort) {
+      if (msg is double) {
+        onProgress?.call(msg);
+      } else if (msg == 'done') {
+        receivePort.close();
+        break;
       }
     }
-    onProgress?.call(1.0);
   }
 
-  /// Paste multiple files using isolate (for copy)
   Future<void> pasteMultipleFilesInBackground({
     required List<String> paths,
     required String destination,
@@ -64,7 +40,7 @@ class FileOperations {
   }) async {
     final receivePort = ReceivePort();
 
-    await Isolate.spawn(_pasteInIsolateEntry, {
+    await Isolate.spawn(_multiFileOperationIsolate, {
       'paths': paths,
       'destination': destination,
       'isCopy': isCopy,
@@ -81,166 +57,99 @@ class FileOperations {
     }
   }
 
-  static void _pasteInIsolateEntry(Map<String, dynamic> args) async {
+  static void _singleFileOperationIsolate(Map<String, dynamic> args) async {
+    final source = args['source'] as String;
+    final target = args['target'] as String;
+    final isCopy = args['isCopy'] as bool;
+    final sendPort = args['sendPort'] as SendPort;
+
+    try {
+      await _processEntity(source, target, isCopy, sendPort);
+    } catch (_) {
+      sendPort.send(1.0);
+    } finally {
+      sendPort.send('done');
+    }
+  }
+
+  static void _multiFileOperationIsolate(Map<String, dynamic> args) async {
     final paths = List<String>.from(args['paths']);
-    final destination = args['destination'];
-    final isCopy = args['isCopy'];
+    final destination = args['destination'] as String;
+    final isCopy = args['isCopy'] as bool;
     final sendPort = args['sendPort'] as SendPort;
 
     int totalBytes = 0;
-    final pathSizes = <String, int>{};
-
+    final sizes = <String, int>{};
     for (var path in paths) {
       final type = FileSystemEntity.typeSync(path);
       final size = type == FileSystemEntityType.file ? File(path).lengthSync() : 0;
-      pathSizes[path] = size;
+      sizes[path] = size;
       totalBytes += size;
     }
 
     int copied = 0;
-
     for (var path in paths) {
       final name = p.basename(path);
       final target = p.join(destination, name);
-      final type = FileSystemEntity.typeSync(path);
 
-      if (isCopy) {
-        if (type == FileSystemEntityType.file) {
-          final input = File(path).openRead();
-          final output = File(target).openWrite();
-          await input.listen((chunk) {
-            output.add(chunk);
-            copied += chunk.length;
-            if (totalBytes > 0) {
-              sendPort.send((copied / totalBytes).clamp(0, 1));
-            }
-          }).asFuture();
-          await output.close();
-        } else if (type == FileSystemEntityType.directory) {
-          Directory(target).createSync(recursive: true);
-        }
-      } else {
-        try {
-          if (type == FileSystemEntityType.directory) {
-            Directory(path).renameSync(target);
-          } else if (type == FileSystemEntityType.file) {
-            File(path).renameSync(target);
+      await _processEntity(
+        path,
+        target,
+        isCopy,
+        SendPortWrapper((bytes) {
+          copied += bytes;
+          if (totalBytes > 0) {
+            sendPort.send((copied / totalBytes).clamp(0.0, 1.0));
           }
-        } catch (_) {
-          final input = File(path).openRead();
-          final output = File(target).openWrite();
-          await input.pipe(output);
-          await File(path).delete();
-        }
-      }
+        }),
+      );
     }
 
     sendPort.send(1.0);
     sendPort.send('done');
   }
 
-  Future<void> _copyFileInIsolate(
+  static Future<void> _processEntity(
       String source,
-      String destination,
-      void Function(double progress)? onProgress,
+      String target,
+      bool isCopy,
+      dynamic sendPort,
       ) async {
-    final receivePort = ReceivePort();
-    await Isolate.spawn<_CopyParams>(
-      _copyFileIsolateEntryWithProgress,
-      _CopyParams(
-        sourcePath: source,
-        destinationPath: destination,
-        sendPort: receivePort.sendPort,
-      ),
-    );
+    final type = FileSystemEntity.typeSync(source);
 
-    await for (final msg in receivePort) {
-      if (msg is double && onProgress != null) {
-        onProgress(msg);
-      } else if (msg == 'done') {
-        receivePort.close();
-        break;
-      }
-    }
-  }
-
-  static void _copyFileIsolateEntryWithProgress(_CopyParams params) async {
-    final source = File(params.sourcePath);
-    final dest = File(params.destinationPath);
-    final totalSize = source.lengthSync();
-
-    final input = source.openRead();
-    final output = dest.openWrite();
-
-    int copied = 0;
-
-    await input.listen((chunk) {
-      output.add(chunk);
-      copied += chunk.length;
-      params.sendPort.send((copied / totalSize).clamp(0.0, 1.0));
-    }).asFuture();
-
-    await output.close();
-    params.sendPort.send('done');
-  }
-
-
-  Future<void> _copyFileWithProgress(
-      File source,
-      File dest,
-      void Function(double progress)? onProgress,
-      ) async {
-    final srcLength = await source.length();
-    final srcStream = source.openRead();
-    final destSink = dest.openWrite();
-    int copied = 0;
-
-    await for (final data in srcStream) {
-      destSink.add(data);
-      copied += data.length;
-      onProgress?.call((srcLength == 0) ? 1.0 : (copied / srcLength).clamp(0, 1));
-    }
-
-    await destSink.close();
-  }
-
-  Future<void> _copyFolder(
-      Directory source,
-      Directory destination,
-      void Function(int bytesCopied)? onBytesCopied,
-      ) async {
-    await destination.create(recursive: true);
-    await for (var entity in source.list(recursive: false)) {
-      final name = p.basename(entity.path);
-      final targetPath = p.join(destination.path, name);
-
-      if (entity is Directory) {
-        await _copyFolder(entity, Directory(targetPath), onBytesCopied);
-      } else if (entity is File) {
-        final srcLength = await entity.length();
-        await _copyFileWithProgress(entity, File(targetPath), (progress) {
-          if (progress == 1.0) onBytesCopied?.call(srcLength);
-        });
-      }
-    }
-  }
-
-  Future<int> _getTotalSize(Directory dir) async {
-    int size = 0;
-    await for (var entity in dir.list(recursive: true, followLinks: false)) {
-      if (entity is File) size += await entity.length();
-    }
-    return size;
-  }
-
-  Future<int> getEntitySize(String path) async {
-    final type = FileSystemEntity.typeSync(path);
     if (type == FileSystemEntityType.file) {
-      return await File(path).length();
+      if (isCopy) {
+        final input = File(source).openRead();
+        final output = File(target).openWrite();
+        final totalSize = File(source).lengthSync();
+        int copied = 0;
+
+        await input.listen((chunk) {
+          output.add(chunk);
+          copied += chunk.length;
+          if (sendPort is SendPortWrapper) {
+            sendPort.callback(chunk.length);
+          } else {
+            sendPort.send((copied / totalSize).clamp(0.0, 1.0));
+          }
+        }).asFuture();
+        await output.close();
+      } else {
+        File(source).renameSync(target);
+      }
     } else if (type == FileSystemEntityType.directory) {
-      return await _getTotalSize(Directory(path));
+      if (isCopy) {
+        await Directory(target).create(recursive: true);
+        final children = Directory(source).listSync();
+        for (final child in children) {
+          final name = p.basename(child.path);
+          final childTarget = p.join(target, name);
+          await _processEntity(child.path, childTarget, isCopy, sendPort);
+        }
+      } else {
+        Directory(source).renameSync(target);
+      }
     }
-    return 0;
   }
 
   Future<void> deleteOperation(String filePath) async {
@@ -250,26 +159,25 @@ class FileOperations {
   Future<void> deleteMultiple(List<String> paths, {
     void Function(double progress)? onProgress,
   }) async {
-    final total = paths.length;
-    int deleted = 0;
-
-    for (final path in paths) {
-      await deleteOperation(path);
-      deleted++;
-      onProgress?.call(deleted / total);
-    }
-
-    onProgress?.call(1.0);
+    await _deleteMany(paths, deleteOperation, onProgress);
   }
 
   Future<void> deleteMultiplePermanently(List<String> paths, {
     void Function(double progress)? onProgress,
   }) async {
+    await _deleteMany(paths, RecentlyDeletedManager().deleteOriginalPath, onProgress);
+  }
+
+  Future<void> _deleteMany(
+      List<String> paths,
+      Future<void> Function(String path) deleteFn,
+      void Function(double progress)? onProgress,
+      ) async {
     final total = paths.length;
     int deleted = 0;
 
     for (final path in paths) {
-      await RecentlyDeletedManager().deleteOriginalPath(path);
+      await deleteFn(path);
       deleted++;
       onProgress?.call(deleted / total);
     }
@@ -278,14 +186,7 @@ class FileOperations {
   }
 }
 
-class _CopyParams {
-  final String sourcePath;
-  final String destinationPath;
-  final SendPort sendPort;
-
-  _CopyParams({
-    required this.sourcePath,
-    required this.destinationPath,
-    required this.sendPort,
-  });
+class SendPortWrapper {
+  final void Function(int) callback;
+  SendPortWrapper(this.callback);
 }

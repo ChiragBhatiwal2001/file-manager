@@ -1,6 +1,4 @@
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:file_manager/Providers/favorite_notifier.dart';
-import 'package:file_manager/Providers/theme_notifier.dart';
 import 'package:file_manager/Screens/favorite_screen.dart';
 import 'package:file_manager/Screens/file_explorer_screen.dart';
 import 'package:file_manager/Screens/quick_access_screen.dart';
@@ -42,16 +40,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<bool> _requestAllMediaPermissions() async {
     final deviceInfo = DeviceInfoPlugin();
     final androidInfo = await deviceInfo.androidInfo;
-    final sdkInt = androidInfo.version.sdkInt;
-
-    if (sdkInt < 29) {
+    if (androidInfo.version.sdkInt < 29) {
       final status = await Permission.storage.request();
-      return status.isGranted;
-    } else if (sdkInt < 33) {
-      final status = await Permission.manageExternalStorage.request();
       return status.isGranted;
     } else {
       final permissions = [
+        Permission.manageExternalStorage,
         Permission.photos,
         Permission.videos,
         Permission.audio,
@@ -61,23 +55,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-
   Future<void> getStoragePath() async {
     final path = await ExternalPath.getExternalStorageDirectories();
     internalStorage = path![0];
     Constant.internalPath = internalStorage!;
-  }
-
-  void checkForPermissions() async {
-    final isGranted = await _requestAllMediaPermissions();
-    if (!isGranted && mounted) {
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please grant all permissions to continue.'),
-        ),
-      );
-    }
   }
 
   final mediaTypes = {
@@ -86,7 +67,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     MediaType.audio: Icons.music_note,
     MediaType.document: Icons.insert_drive_file,
     MediaType.apk: Icons.android,
-    MediaType.archive: Icons.archive
   };
 
   void _showPermissionSnackBar(BuildContext context) {
@@ -147,14 +127,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     return;
                   }
                   await getStoragePath();
-                  await Navigator.of(context).push(
+                  Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => FileExplorerScreen(
                         initialPath: Constant.internalPath,
                       ),
                     ),
                   );
-                  await ref.read(favoritesProvider.notifier).loadFavorites();
                 },
               ),
               const SizedBox(height: 18),
@@ -180,7 +159,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     return;
                   }
                   await getStoragePath();
-                  await Navigator.push(
+                  Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => QuickAccessScreen(
@@ -189,7 +168,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                   );
-                  await ref.read(favoritesProvider.notifier).loadFavorites();
                 },
               ),
               const SizedBox(height: 18),
