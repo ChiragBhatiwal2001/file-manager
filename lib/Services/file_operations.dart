@@ -35,16 +35,17 @@ class FileOperations {
   Future<void> pasteMultipleFilesInBackground({
     required List<String> paths,
     required String destination,
+    List<String>? resolvedPaths,
     required bool isCopy,
     required void Function(double progress) onProgress,
   }) async {
     final receivePort = ReceivePort();
-
     await Isolate.spawn(_multiFileOperationIsolate, {
       'paths': paths,
       'destination': destination,
       'isCopy': isCopy,
       'sendPort': receivePort.sendPort,
+      'resolvedPaths': resolvedPaths,
     });
 
     await for (var msg in receivePort) {
@@ -77,6 +78,9 @@ class FileOperations {
     final destination = args['destination'] as String;
     final isCopy = args['isCopy'] as bool;
     final sendPort = args['sendPort'] as SendPort;
+    final resolvedPaths = args['resolvedPaths'] != null
+        ? List<String>.from(args['resolvedPaths'])
+        : null;
 
     int totalBytes = 0;
     final sizes = <String, int>{};
@@ -88,12 +92,14 @@ class FileOperations {
     }
 
     int copied = 0;
-    for (var path in paths) {
-      final name = p.basename(path);
-      final target = p.join(destination, name);
+    for (int i = 0; i < paths.length; i++) {
+      final source = paths[i];
+      final target = resolvedPaths != null
+          ? resolvedPaths[i]
+          : p.join(destination, p.basename(source));
 
       await _processEntity(
-        path,
+        source,
         target,
         isCopy,
         SendPortWrapper((bytes) {

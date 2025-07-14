@@ -1,18 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_manager/Services/shared_preference.dart';
 
-final limitSettingsProvider =
-StateNotifierProvider<LimitSettingsNotifier, LimitSettingsState>((ref) {
-  final recent = SharedPrefsService.instance.getInt('recentLimit', defaultValue: 50);
-  final favorite = SharedPrefsService.instance.getInt('favoriteLimit', defaultValue: 10);
-  return LimitSettingsNotifier(
-    LimitSettingsState(
-      recentLimit: recent,
-      favoriteLimit: favorite,
-    ),
-  );
-});
-
 class LimitSettingsState {
   final int recentLimit;
   final int favoriteLimit;
@@ -32,6 +20,18 @@ class LimitSettingsState {
     );
   }
 }
+
+final limitSettingsProvider =
+StateNotifierProvider<LimitSettingsNotifier, LimitSettingsState>((ref) {
+  final recent = SharedPrefsService.instance.getInt('recentLimit', defaultValue: 50);
+  final favorite = SharedPrefsService.instance.getInt('favoriteLimit', defaultValue: 10);
+  return LimitSettingsNotifier(
+    LimitSettingsState(
+      recentLimit: recent,
+      favoriteLimit: favorite,
+    ),
+  );
+});
 
 class LimitSettingsNotifier extends StateNotifier<LimitSettingsState> {
   LimitSettingsNotifier(super.state);

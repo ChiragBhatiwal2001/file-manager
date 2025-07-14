@@ -108,28 +108,26 @@ class _BottomSheetForPasteOperationState
             );
           } else if (widget.selectedPaths != null &&
               widget.selectedPaths!.isNotEmpty) {
-            if (widget.selectedPaths!.length == 1) {
-              String src = widget.selectedPaths!.first;
-              String destPath = p.join(currentPath, p.basename(src));
+            final resolvedTargets = <String>[];
+            for (final path in widget.selectedPaths!) {
+              final name = p.basename(path);
+              String destPath = p.join(currentPath, name);
+
               if (await FileSystemEntity.type(destPath) !=
                   FileSystemEntityType.notFound) {
                 destPath = await getUniqueDestinationPath(destPath);
               }
-              await fileOps.pasteFileToDestination(
-                widget.isCopy,
-                p.dirname(destPath),
-                src,
-                onProgress: onProgress,
-              );
-            } else {
-              await fileOps.pasteMultipleFilesInBackground(
-                paths: widget.selectedPaths!.toList(),
-                destination: currentPath,
-                isCopy: widget.isCopy,
-                onProgress: onProgress,
-              );
-              widget.selectedPaths!.clear();
+
+              resolvedTargets.add(destPath);
             }
+            await fileOps.pasteMultipleFilesInBackground(
+              paths: widget.selectedPaths!.toList(),
+              resolvedPaths: resolvedTargets,
+              destination: currentPath,
+              isCopy: widget.isCopy,
+              onProgress: onProgress,
+            );
+            widget.selectedPaths!.clear();
           }
         } catch (e) {
           if (context.mounted) {

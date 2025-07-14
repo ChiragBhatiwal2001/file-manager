@@ -13,8 +13,8 @@ class DragOrderStore {
     return box.get(path);
   }
 
-  static Future<void> removeOrderForPath(String path) async {
-    final box = await Hive.openBox<List<String>>(_boxName);
-    await box.delete(path);
-  }
+  // static Future<void> removeOrderForPath(String path) async {
+  //   final box = await Hive.openBox<List<String>>(_boxName);
+  //   await box.delete(path);
+  // }
 }
