@@ -3,7 +3,6 @@ import 'package:file_manager/Services/drag_order_file_explorer.dart';
 import 'package:file_manager/Services/shared_preference.dart';
 import 'package:file_manager/Utils/constant.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_manager/Services/path_loading_operations.dart';
 import 'package:file_manager/Services/sorting_operation.dart';
@@ -99,7 +98,6 @@ class FileExplorerNotifier extends StateNotifier<FileExplorerState> {
       }
       return;
     }
-
     final newPath = PathLoadingOperations.goBackToParentPath(state.currentPath);
     if (newPath != null) {
       await loadAllContentOfPath(newPath);

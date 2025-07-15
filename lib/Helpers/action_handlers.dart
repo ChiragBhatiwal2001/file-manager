@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:file_manager/Helpers/detail_helpers.dart';
+import 'package:file_manager/Utils/file_operations_enum.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -18,31 +19,38 @@ Future<void> handleAction({
   required bool isFavorite,
   required void Function(String path) loadAgain,
 }) async {
-  switch (action) {
-    case "Copy":
+  final actionEnum = FileActionExtension.fromLabel(action);
+
+  if (actionEnum == null) {
+    Navigator.pop(context);
+    return;
+  }
+
+  switch (actionEnum) {
+    case FileAction.copy:
       Navigator.pop(context);
       await _showPasteSheet(context, true, path, loadAgain);
       break;
-    case "Move":
+    case FileAction.move:
       Navigator.pop(context);
       await _showPasteSheet(context, false, path, loadAgain);
       break;
-    case "Mark Favorite":
+    case FileAction.markFavorite:
       Navigator.pop(context);
       await _toggleFavorite(context, ref, path, isFavorite, loadAgain);
       break;
-    case "Remove Favorite":
+    case FileAction.removeFavorite:
       Navigator.pop(context);
       await _toggleFavorite(context, ref, path, isFavorite, loadAgain);
       break;
-    case "Delete":
+    case FileAction.delete:
       await _handleDelete(context, path, loadAgain);
       break;
-    case "Details":
+    case FileAction.details:
       Navigator.pop(context);
       await showDetailsDialog(context, path);
       break;
-    case "Rename":
+    case FileAction.rename:
       Navigator.pop(context);
       await handleRename(context, path, loadAgain);
       break;
@@ -58,19 +66,17 @@ Future<void> _showPasteSheet(
   String path,
   void Function(String) loadAgain,
 ) async {
+  Set<String> paths = {};
+  paths.add(path);
   try {
     final result = await showModalBottomSheet<String>(
       isScrollControlled: true,
       useSafeArea: true,
       context: context,
-      builder: (context) => BottomSheetForPasteOperation(
-        isCopy: isCopy,
-        isSingleOperation: true,
-        selectedSinglePath: path,
-      ),
+      builder: (context) =>
+          BottomSheetForPasteOperation(isCopy: isCopy, selectedPaths: paths),
     );
     if (result != null) {
-      print("$result is okay.?");
       loadAgain(result);
     }
   } catch (_) {

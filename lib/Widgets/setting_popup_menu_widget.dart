@@ -2,6 +2,7 @@ import 'package:file_manager/Helpers/sorting_dialog.dart';
 import 'package:file_manager/Providers/file_explorer_notifier.dart';
 import 'package:file_manager/Providers/manual_drag_mode_notifier.dart';
 import 'package:file_manager/Providers/view_toggle_notifier.dart';
+import 'package:file_manager/Utils/sort_enum.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -35,13 +36,13 @@ class SettingPopupMenuWidget extends ConsumerWidget {
     return PopupMenuButton<String>(
       onSelected: (value) async {
         if (value == "Sorting") {
-          String initialSortBy = "name";
-          String initialSortOrder = "asc";
+          String initialSortBy = SortByType.name.name;
+          String initialSortOrder = SortOrderType.asc.name;
 
           if (currentSortValue != null) {
-            if (currentSortValue == "drag") {
-              initialSortBy = "drag";
-              initialSortOrder = "drag";
+            if (currentSortValue == SortByType.drag.name) {
+              initialSortBy = SortByType.drag.name;
+              initialSortOrder = SortByType.drag.name;
             } else if (currentSortValue!.contains("-")) {
               final parts = currentSortValue!.split("-");
               initialSortBy = parts[0];
@@ -63,17 +64,17 @@ class SettingPopupMenuWidget extends ConsumerWidget {
             final sortBy = result["sortBy"];
             final forCurrentPath = result["applyToCurrentPath"] ?? true;
 
-            if (sortOrder == "drag") {
+            if (sortOrder == SortByType.drag.name) {
               if (!showPathSpecificOption) return;
 
               final forCurrentPath = result["applyToCurrentPath"] ?? true;
 
               if (setSortValue != null) {
-                await setSortValue!("drag", forCurrentPath: forCurrentPath);
+                await setSortValue!(SortByType.drag.name, forCurrentPath: forCurrentPath);
               } else {
                 await ref
                     .read(fileExplorerProvider.notifier)
-                    .setSortValue("drag", forCurrentPath: forCurrentPath);
+                    .setSortValue(SortByType.drag.name, forCurrentPath: forCurrentPath);
               }
               ref.read(manualDragModeProvider.notifier).state = forCurrentPath;
 
@@ -81,7 +82,7 @@ class SettingPopupMenuWidget extends ConsumerWidget {
               viewModeNotifier.setMode("List View");
 
               if (onSortChanged != null) {
-                onSortChanged!("drag");
+                onSortChanged!(SortByType.drag.name);
               }
 
               return;

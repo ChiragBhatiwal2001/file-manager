@@ -77,9 +77,7 @@ class _FileListTileState extends ConsumerState<FileListTile> {
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             )
           : const Text("Loading..."),
-      leading: widget.isDrag
-          ? null
-          : _thumbnail != null
+      leading: _thumbnail != null
           ? ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.memory(

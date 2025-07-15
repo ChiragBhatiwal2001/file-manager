@@ -52,13 +52,23 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
 
   List<FileSystemEntity> filterByCategory(int index) {
     if (index == 0) return allResults;
-
+    //TODO --> Enum Implementation (Key-Value)
     final extensions = [
       [],
       ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'],
       ['.mp4', '.mkv', '.avi', '.3gp', '.mov'],
       ['.mp3', '.wav', '.aac', '.m4a', '.ogg'],
-      ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt','.dat'],
+      [
+        '.pdf',
+        '.doc',
+        '.docx',
+        '.xls',
+        '.xlsx',
+        '.ppt',
+        '.pptx',
+        '.txt',
+        '.dat',
+      ],
       ['.apk'],
     ];
 
@@ -85,7 +95,6 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
     _searchController.dispose();
     super.dispose();
   }
-
 
   @override
   Widget build(BuildContext context) {

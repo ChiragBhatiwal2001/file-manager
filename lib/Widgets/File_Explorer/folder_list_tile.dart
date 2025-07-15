@@ -106,11 +106,9 @@ class _FolderListTileState extends ConsumerState<FolderListTile> {
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             )
           : const Text("Loading..."),
-      leading: widget.isDrag
-          ? null
-          : CircleAvatar(
-              child: Icon(Icons.folder, color: isHidden ? Colors.grey : null),
-            ),
+      leading: CircleAvatar(
+        child: Icon(Icons.folder, color: isHidden ? Colors.grey : null),
+      ),
       trailing: _buildTrailing(context, selection),
       onTap: () async {
         if (!mounted) return;
@@ -122,9 +120,7 @@ class _FolderListTileState extends ConsumerState<FolderListTile> {
             await ref
                 .read(fileExplorerProvider.notifier)
                 .loadAllContentOfPath(widget.path);
-          } catch (e) {
-            debugPrint("Safe fallback — provider might be disposed: $e");
-          }
+          } catch (_) {}
         }
       },
 

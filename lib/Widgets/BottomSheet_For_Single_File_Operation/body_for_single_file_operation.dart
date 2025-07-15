@@ -1,4 +1,5 @@
 import 'package:file_manager/Helpers/action_handlers.dart';
+import 'package:file_manager/Utils/file_operations_enum.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_manager/Providers/favorite_notifier.dart';
@@ -21,32 +22,40 @@ class BodyForSingleFileOperation extends ConsumerStatefulWidget {
 
 class _BodyForSingleFileOperationState extends ConsumerState<BodyForSingleFileOperation> {
   final Map<IconData, String> gridList = {
-    Icons.copy: "Copy",
-    Icons.cut: "Move",
-    Icons.drive_file_rename_outline: "Rename",
-    Icons.favorite: "Favorite",
-    Icons.delete: "Delete",
-    Icons.info_outline: "Details",
+    Icons.copy: FileAction.copy.label,
+    Icons.cut: FileAction.move.label,
+    Icons.drive_file_rename_outline: FileAction.rename.label,
+    Icons.favorite: FileAction.favorite.label,
+    Icons.delete: FileAction.delete.label,
+    Icons.info_outline: FileAction.details.label,
   };
+  List<String> paths = [];
+
+  @override
+  void initState() {
+    super.initState();
+    paths.add(widget.path);
+  }
 
   @override
   Widget build(BuildContext context) {
     final favorites = ref.watch(favoritesProvider);
     final isFavorite = favorites.contains(widget.path);
 
+
     final filteredEntries = widget.isChanged
         ? gridList.entries
         .map(
           (e) => MapEntry(
         e.key,
-        e.value == "Favorite"
-            ? (isFavorite ? "Remove Favorite" : "Mark Favorite")
+        e.value == FileAction.favorite.label
+            ? (isFavorite ? FileAction.removeFavorite.label :  FileAction.markFavorite.label)
             : e.value,
       ),
     )
         .toList()
         : gridList.entries
-        .where((e) => e.value != "Copy" && e.value != "Move")
+        .where((e) => e.value != FileAction.copy.label && e.value != FileAction.move.label)
         .toList();
 
     return GridView.builder(

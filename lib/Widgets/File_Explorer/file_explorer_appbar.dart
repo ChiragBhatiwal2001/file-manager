@@ -63,23 +63,7 @@ class _FileExplorerAppBarState extends ConsumerState<FileExplorerAppBar> {
               ? const SizedBox.shrink()
               : IconButton(
             onPressed: () {
-              final selectionNotifier = ref.read(selectionProvider.notifier);
-
-              if (selectionState.isSelectionMode) {
-                selectionNotifier.clearSelection();
-                return;
-              }
-
-              final currentPath = ref.read(fileExplorerProvider).currentPath;
-              final rootPath = widget.currentPath;
-
-              if (currentPath == rootPath) {
-                if (Navigator.of(context).canPop()) {
-                  Navigator.of(context).pop(); // Exit screen
-                }
-              } else {
-                ref.read(fileExplorerProvider.notifier).goBack(context); // Navigate up
-              }
+               Navigator.of(context).maybePop();
             },
             icon: Icon(
               selectionState.isSelectionMode

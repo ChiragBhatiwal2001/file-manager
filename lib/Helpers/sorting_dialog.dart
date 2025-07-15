@@ -1,3 +1,4 @@
+import 'package:file_manager/Utils/sort_enum.dart';
 import 'package:flutter/material.dart';
 
 class SortDialog extends StatefulWidget {
@@ -22,14 +23,14 @@ class _SortDialogState extends State<SortDialog> {
   bool _applyToCurrentPath = false;
 
   bool get _finalApplyToCurrentPath =>
-      _sortBy == "drag" ? true : (widget.showPathSpecificOption ? _applyToCurrentPath : true);
+      _sortBy == SortByType.drag.name ? true : (widget.showPathSpecificOption ? _applyToCurrentPath : true);
 
   @override
   void initState() {
     super.initState();
     _sortBy = widget.initialSortBy;
     _sortOrder = widget.initialSortOrder;
-    if (_sortBy == "drag") {
+    if (_sortBy == SortByType.drag.name) {
       _applyToCurrentPath = true;
     }
   }
@@ -42,33 +43,33 @@ class _SortDialogState extends State<SortDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           RadioListTile(
-            title: const Text("Name"),
-            value: "name",
+            title: Text(SortByType.name.displayName),
+            value: SortByType.name.name,
             groupValue: _sortBy,
             onChanged: (val) => setState(() => _sortBy = val as String),
           ),
           RadioListTile(
-            title: const Text("Size"),
-            value: "size",
+            title: Text(SortByType.size.displayName),
+            value: SortByType.size.name,
             groupValue: _sortBy,
             onChanged: (val) => setState(() => _sortBy = val as String),
           ),
           RadioListTile(
             title: const Text("Last Modified"),
-            value: "modified",
+            value: SortByType.modified.name,
             groupValue: _sortBy,
             onChanged: (val) => setState(() => _sortBy = val as String),
           ),
           RadioListTile(
-            title: const Text("Type"),
-            value: "type",
+            title: Text(SortByType.type.displayName),
+            value: SortByType.type.name,
             groupValue: _sortBy,
             onChanged: (val) => setState(() => _sortBy = val as String),
           ),
           if (widget.showPathSpecificOption)
             RadioListTile(
               title: const Text("Manual Drag"),
-              value: "drag",
+              value: SortByType.drag.name,
               groupValue: _sortBy,
               onChanged: (val) {
                 setState(() {
@@ -77,34 +78,34 @@ class _SortDialogState extends State<SortDialog> {
                 });
               },
             ),
-          if (widget.showPathSpecificOption && _sortBy != "drag")
+          if (widget.showPathSpecificOption && _sortBy != SortByType.drag.name)
             SwitchListTile(
               key: ValueKey("switch-$_applyToCurrentPath"),
               title: const Text("Only this folder"),
               value: _applyToCurrentPath,
               onChanged: (val) => setState(() => _applyToCurrentPath = val),
             ),
-          if (_sortBy == "drag")
+          if (_sortBy == SortByType.drag.name)
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: () {
                   Navigator.pop(context, {
-                    "sortBy": "drag",
-                    "sortOrder": "drag",
+                    "sortBy": SortByType.drag.name,
+                    "sortOrder": SortByType.drag.name,
                     "applyToCurrentPath": _finalApplyToCurrentPath,
                   });
                 },
                 child: const Text("OK"),
               ),
             ),
-          if (_sortBy != "drag")
+          if (_sortBy != SortByType.drag.name)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 TextButton(
                   onPressed: () {
-                    _sortOrder = "desc";
+                    _sortOrder = SortOrderType.desc.name;
                     Navigator.pop(context, {
                       "sortBy": _sortBy,
                       "sortOrder": _sortOrder,
@@ -115,7 +116,7 @@ class _SortDialogState extends State<SortDialog> {
                 ),
                 TextButton(
                   onPressed: () {
-                    _sortOrder = "asc";
+                    _sortOrder = SortOrderType.asc.name;
                     Navigator.pop(context, {
                       "sortBy": _sortBy,
                       "sortOrder": _sortOrder,

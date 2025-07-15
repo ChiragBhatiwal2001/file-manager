@@ -20,16 +20,12 @@ import 'package:path/path.dart' as p;
 
 class BottomSheetForPasteOperation extends ConsumerStatefulWidget {
   final Set<String>? selectedPaths;
-  final String? selectedSinglePath;
   final bool isCopy;
-  final bool isSingleOperation;
 
   const BottomSheetForPasteOperation({
     super.key,
     this.selectedPaths,
-    this.selectedSinglePath,
     required this.isCopy,
-    this.isSingleOperation = false,
   });
 
   @override
@@ -90,45 +86,26 @@ class _BottomSheetForPasteOperationState
       operation: (onProgress) async {
         try {
           final fileOps = FileOperations();
+          final resolvedTargets = <String>[];
+          for (final path in widget.selectedPaths!) {
+            final name = p.basename(path);
+            String destPath = p.join(currentPath, name);
 
-          if (widget.selectedSinglePath != null) {
-            String destFileName = p.basename(widget.selectedSinglePath!);
-            String destPath = p.join(currentPath, destFileName);
-            if (await File(destPath).exists() ||
-                await Directory(destPath).exists()) {
+            if (await FileSystemEntity.type(destPath) !=
+                FileSystemEntityType.notFound) {
               destPath = await getUniqueDestinationPath(destPath);
-              destFileName = p.basename(destPath);
             }
-            await fileOps.pasteFileToDestination(
-              widget.isCopy,
-              p.dirname(destPath),
-              widget.selectedSinglePath!,
-              onProgress: onProgress,
-              newName: destFileName,
-            );
-          } else if (widget.selectedPaths != null &&
-              widget.selectedPaths!.isNotEmpty) {
-            final resolvedTargets = <String>[];
-            for (final path in widget.selectedPaths!) {
-              final name = p.basename(path);
-              String destPath = p.join(currentPath, name);
 
-              if (await FileSystemEntity.type(destPath) !=
-                  FileSystemEntityType.notFound) {
-                destPath = await getUniqueDestinationPath(destPath);
-              }
-
-              resolvedTargets.add(destPath);
-            }
-            await fileOps.pasteMultipleFilesInBackground(
-              paths: widget.selectedPaths!.toList(),
-              resolvedPaths: resolvedTargets,
-              destination: currentPath,
-              isCopy: widget.isCopy,
-              onProgress: onProgress,
-            );
-            widget.selectedPaths!.clear();
+            resolvedTargets.add(destPath);
           }
+          await fileOps.pasteMultipleFilesInBackground(
+            paths: widget.selectedPaths!.toList(),
+            resolvedPaths: resolvedTargets,
+            destination: currentPath,
+            isCopy: widget.isCopy,
+            onProgress: onProgress,
+          );
+          widget.selectedPaths!.clear();
         } catch (e) {
           if (context.mounted) {
             await showDialog(

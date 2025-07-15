@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:file_manager/Utils/constant.dart';
 import 'package:file_manager/Utils/restricted_files.dart';
-import 'package:flutter/material.dart';
 
 class DirectoryContent {
   List<Directory> folders;
@@ -28,7 +27,6 @@ class PathLoadingOperations {
   static String? goBackToParentPath(String currentPath) {
     final rootPath = _internalStoragePath!;
     final parentPath = Directory(currentPath).parent.path;
-
     if (currentPath == rootPath || !parentPath.startsWith(rootPath)) {
       return null;
     }
