@@ -7,7 +7,7 @@ import 'package:file_manager/Screens/file_explorer_screen.dart';
 import 'package:file_manager/Utils/MediaUtils.dart';
 import 'highlight_text.dart';
 
-class SearchResultList extends StatelessWidget {
+class SearchResultList extends StatefulWidget {
   final List<FileSystemEntity> files;
   final String query;
   final bool isLoading;
@@ -20,12 +20,19 @@ class SearchResultList extends StatelessWidget {
   });
 
   @override
+  State<SearchResultList> createState() => _SearchResultListState();
+}
+
+class _SearchResultListState extends State<SearchResultList> {
+  final Map<String, Uint8List?> _thumbnailCache = {};
+
+  @override
   Widget build(BuildContext context) {
-    if (isLoading) {
+    if (widget.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (files.isEmpty) {
+    if (widget.files.isEmpty) {
       return const Center(
         child: Text(
           'No files found',
@@ -35,58 +42,62 @@ class SearchResultList extends StatelessWidget {
     }
 
     return ListView.builder(
-      itemCount: files.length,
+      itemCount: widget.files.length,
       itemBuilder: (context, index) {
-        final file = files[index];
-        final filename = file.path.split('/').last;
+        final file = widget.files[index];
+        final filePath = file.path;
+        final filename = filePath.split('/').last;
 
         return ListTile(
-          leading: FutureBuilder<Uint8List?>(
-            future: ThumbnailService.getThumbnail(file.path),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.done &&
-                  snapshot.hasData &&
-                  snapshot.data != null) {
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.memory(
-                    snapshot.data!,
-                    width: 40,
-                    height: 40,
-                    fit: BoxFit.cover,
-                  ),
-                );
-              } else {
-                if (FileSystemEntity.isDirectorySync(file.path)) {
-                  return const CircleAvatar(child: Icon(Icons.folder));
-                } else {
-                  final mediaType = MediaUtils.getMediaTypeFromExtension(
-                    file.path,
-                  );
-                  return CircleAvatar(
-                    child: Icon(MediaUtils.getIconForMedia(mediaType)),
-                  );
-                }
-              }
-            },
-          ),
-          title: HighlightText(text: filename, query: query),
+          leading: _buildThumbnail(file),
+          title: HighlightText(text: filename, query: widget.query),
           onTap: () {
             FocusScope.of(context).unfocus();
-            if (FileSystemEntity.isDirectorySync(file.path)) {
+            if (FileSystemEntity.isDirectorySync(filePath)) {
               Navigator.pop(context);
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => FileExplorerScreen(initialPath: file.path),
+                  builder: (_) => FileExplorerScreen(initialPath: filePath),
                 ),
               );
             } else {
-              OpenFilex.open(file.path);
+              OpenFilex.open(filePath);
             }
           },
         );
       },
     );
+  }
+
+  Widget _buildThumbnail(FileSystemEntity file) {
+    final filePath = file.path;
+
+    if (_thumbnailCache.containsKey(filePath)) {
+      final data = _thumbnailCache[filePath];
+      if (data != null) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.memory(data, width: 40, height: 40, fit: BoxFit.cover),
+        );
+      }
+    }
+
+    if (FileSystemEntity.isDirectorySync(filePath)) {
+      return const CircleAvatar(child: Icon(Icons.folder));
+    } else {
+      final mediaType = MediaUtils.getMediaTypeFromExtension(filePath);
+      _fetchThumbnail(filePath);
+      return CircleAvatar(child: Icon(MediaUtils.getIconForMedia(mediaType)));
+    }
+  }
+
+  void _fetchThumbnail(String filePath) async {
+    final data = await ThumbnailService.getThumbnail(filePath);
+    if (mounted) {
+      setState(() {
+        _thumbnailCache[filePath] = data;
+      });
+    }
   }
 }

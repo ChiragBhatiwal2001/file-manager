@@ -54,7 +54,7 @@ class _QuickAccessScreenState extends ConsumerState<QuickAccessScreen> {
     final prefs = SharedPrefsService.instance;
     await prefs.init();
     final savedSort = prefs.getString("sort-preference");
-    currentSortValue = savedSort ?? "name-asc";
+    currentSortValue = savedSort ?? "modified-desc";
     _getDataForDisplay();
   }
 

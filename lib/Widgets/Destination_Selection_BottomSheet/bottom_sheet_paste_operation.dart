@@ -76,10 +76,38 @@ class _BottomSheetForPasteOperationState
   );
 
   Future<void> _handlePaste() async {
+    bool didSomething = false;
     if (_isPasting) return;
     setState(() => _isPasting = true);
 
     final rootContext = Navigator.of(context, rootNavigator: true).context;
+
+    if (widget.selectedPaths == null || widget.selectedPaths!.isEmpty) {
+      Fluttertoast.showToast(msg: "No files selected to paste.");
+      return;
+    }
+
+    if (!widget.isCopy) {
+      final isInvalid = widget.selectedPaths!.any((path) => p.dirname(path) == currentPath);
+      if (isInvalid) {
+        await showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text("Invalid Operation"),
+            content: const Text("Cannot move files or folders into the same directory."),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("OK"),
+              ),
+            ],
+          ),
+        );
+        setState(() => _isPasting = false);
+        return;
+      }
+    }
+
 
     await showProgressDialog(
       context: rootContext,
@@ -93,11 +121,44 @@ class _BottomSheetForPasteOperationState
 
             if (await FileSystemEntity.type(destPath) !=
                 FileSystemEntityType.notFound) {
-              destPath = await getUniqueDestinationPath(destPath);
-            }
+              final result = await showDialog<String>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text("Name Conflict"),
+                  content: Text(
+                    "File or Folder name \"$name\" is already present.",
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, "skip"),
+                      child: const Text("Skip"),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, "keepBoth"),
+                      child: const Text("Keep Both"),
+                    ),
+                  ],
+                ),
+              );
 
-            resolvedTargets.add(destPath);
+              if (result == "keepBoth") {
+                destPath = await getUniqueDestinationPath(destPath);
+                resolvedTargets.add(destPath);
+              } else {
+                continue;
+              }
+            } else {
+              resolvedTargets.add(destPath);
+            }
           }
+
+          if (resolvedTargets.isEmpty) {
+            Fluttertoast.showToast(
+              msg: "${widget.isCopy ? 'Copy' : 'Move'} operation Skipped",
+            );
+            return;
+          }
+
           await fileOps.pasteMultipleFilesInBackground(
             paths: widget.selectedPaths!.toList(),
             resolvedPaths: resolvedTargets,
@@ -106,6 +167,10 @@ class _BottomSheetForPasteOperationState
             onProgress: onProgress,
           );
           widget.selectedPaths!.clear();
+          didSomething = true;
+          Fluttertoast.showToast(
+            msg: "${widget.isCopy ? 'Copy' : 'Move'} operation completed",
+          );
         } catch (e) {
           if (context.mounted) {
             await showDialog(
@@ -127,10 +192,11 @@ class _BottomSheetForPasteOperationState
     );
     if (!mounted) return;
 
-    Fluttertoast.showToast(
-      msg: "${widget.isCopy ? 'Copy' : 'Move'} operation completed",
-    );
-    Navigator.pop(context, currentPath);
+    if (didSomething) {
+      Navigator.pop(context, currentPath);
+    } else {
+      Navigator.pop(context);
+    }
     setState(() => _isPasting = false);
   }
 
@@ -138,6 +204,7 @@ class _BottomSheetForPasteOperationState
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
       expand: false,
+
       initialChildSize: 1,
       builder: (context, scrollController) {
         if (isLoading) return const Center(child: CircularProgressIndicator());

@@ -16,13 +16,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class RecentAddedTile extends ConsumerStatefulWidget {
   final MediaFile file;
   final void Function([String data]) onRefresh;
-  final VoidCallback? onOperationDone;
   final bool isGrid;
 
   const RecentAddedTile({
     required this.file,
     required this.onRefresh,
-    required this.onOperationDone,
     required this.isGrid,
   });
 
@@ -225,7 +223,6 @@ class _RecentAddedTileState extends ConsumerState<RecentAddedTile> {
                       ).then((result) {
                         if (result == true) {
                           widget.onRefresh();
-                          widget.onOperationDone?.call();
                         }
                       });
                     },

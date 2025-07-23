@@ -4,34 +4,6 @@ import 'package:path/path.dart' as p;
 import 'package:file_manager/Services/recycler_bin.dart';
 
 class FileOperations {
-  Future<void> pasteFileToDestination(
-      bool isCopy,
-      String destination,
-      String source, {
-        void Function(double progress)? onProgress,
-        String? newName,
-      }) async {
-    final name = newName ?? p.basename(source);
-    final targetPath = p.join(destination, name);
-    final receivePort = ReceivePort();
-
-    await Isolate.spawn(_singleFileOperationIsolate, {
-      'source': source,
-      'target': targetPath,
-      'isCopy': isCopy,
-      'sendPort': receivePort.sendPort,
-    });
-
-    await for (var msg in receivePort) {
-      if (msg is double) {
-        onProgress?.call(msg);
-      } else if (msg == 'done') {
-        receivePort.close();
-        break;
-      }
-    }
-  }
-
   Future<void> pasteMultipleFilesInBackground({
     required List<String> paths,
     required String destination,
@@ -55,21 +27,6 @@ class FileOperations {
         receivePort.close();
         break;
       }
-    }
-  }
-
-  static void _singleFileOperationIsolate(Map<String, dynamic> args) async {
-    final source = args['source'] as String;
-    final target = args['target'] as String;
-    final isCopy = args['isCopy'] as bool;
-    final sendPort = args['sendPort'] as SendPort;
-
-    try {
-      await _processEntity(source, target, isCopy, sendPort);
-    } catch (_) {
-      sendPort.send(1.0);
-    } finally {
-      sendPort.send('done');
     }
   }
 

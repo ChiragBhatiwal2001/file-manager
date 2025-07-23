@@ -145,7 +145,6 @@ class _FolderListTileState extends ConsumerState<FolderListTile> {
         icon: const Icon(Icons.more_vert),
         onPressed: () async {
           final result = await showModalBottomSheet(
-            isScrollControlled: true,
             context: context,
             builder: (context) => BottomSheetForSingleFileOperation(
               path: widget.path,

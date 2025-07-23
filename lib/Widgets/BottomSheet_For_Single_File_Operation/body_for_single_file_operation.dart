@@ -17,10 +17,12 @@ class BodyForSingleFileOperation extends ConsumerStatefulWidget {
   final bool isChanged;
 
   @override
-  ConsumerState<BodyForSingleFileOperation> createState() => _BodyForSingleFileOperationState();
+  ConsumerState<BodyForSingleFileOperation> createState() =>
+      _BodyForSingleFileOperationState();
 }
 
-class _BodyForSingleFileOperationState extends ConsumerState<BodyForSingleFileOperation> {
+class _BodyForSingleFileOperationState
+    extends ConsumerState<BodyForSingleFileOperation> {
   final Map<IconData, String> gridList = {
     Icons.copy: FileAction.copy.label,
     Icons.cut: FileAction.move.label,
@@ -42,59 +44,62 @@ class _BodyForSingleFileOperationState extends ConsumerState<BodyForSingleFileOp
     final favorites = ref.watch(favoritesProvider);
     final isFavorite = favorites.contains(widget.path);
 
-
     final filteredEntries = widget.isChanged
         ? gridList.entries
-        .map(
-          (e) => MapEntry(
-        e.key,
-        e.value == FileAction.favorite.label
-            ? (isFavorite ? FileAction.removeFavorite.label :  FileAction.markFavorite.label)
-            : e.value,
-      ),
-    )
-        .toList()
+              .map(
+                (e) => MapEntry(
+                  e.key,
+                  e.value == FileAction.favorite.label
+                      ? (isFavorite
+                            ? FileAction.removeFavorite.label
+                            : FileAction.markFavorite.label)
+                      : e.value,
+                ),
+              )
+              .toList()
         : gridList.entries
-        .where((e) => e.value != FileAction.copy.label && e.value != FileAction.move.label)
-        .toList();
+              .where(
+                (e) =>
+                    e.value != FileAction.copy.label &&
+                    e.value != FileAction.move.label,
+              )
+              .toList();
 
     return GridView.builder(
       itemCount: filteredEntries.length,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+      ),
       itemBuilder: (context, index) {
         final icon = filteredEntries[index].key;
         final action = filteredEntries[index].value;
 
-        return Material(
-          borderRadius: BorderRadius.circular(16),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () => handleAction(
-              context: context,
-              ref: ref,
-              action: action,
-              path: widget.path,
-              isFavorite: isFavorite,
-              loadAgain: widget.loadAgain,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircleAvatar(child: Icon(icon)),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: Text(
-                    action,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              ],
-            ),
+        return InkWell(
+          splashColor: Colors.blueGrey,
+          onTap: () => handleAction(
+            context: context,
+            ref: ref,
+            action: action,
+            path: widget.path,
+            isFavorite: isFavorite,
+            loadAgain: widget.loadAgain,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(child: Icon(icon)),
+              const SizedBox(height: 8),
+              Text(
+                action,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 14,fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
         );
       },

@@ -1,6 +1,7 @@
 import 'package:file_manager/Providers/hide_file_folder_notifier.dart';
 import 'package:file_manager/Providers/limit_setting_provider.dart';
 import 'package:file_manager/Providers/theme_notifier.dart';
+import 'package:file_manager/Services/shared_preference.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +24,28 @@ class _SettingScreenState extends ConsumerState<SettingScreen> {
     super.dispose();
     _limitRecentController.dispose();
     _limitFavoriteController.dispose();
+  }
+
+  String _getThemeSubtitle(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.dark:
+        return "Dark theme enabled";
+      case ThemeMode.light:
+        return "Light theme enabled";
+      case ThemeMode.system:
+        return "System default theme";
+    }
+  }
+
+  IconData _getThemeIcon(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.dark:
+        return Icons.dark_mode;
+      case ThemeMode.light:
+        return Icons.light_mode;
+      case ThemeMode.system:
+        return Icons.brightness_6_outlined;
+    }
   }
 
   @override
@@ -52,19 +75,78 @@ class _SettingScreenState extends ConsumerState<SettingScreen> {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
           ),
-          ListTile(
-            title: Text(
-              "Theme",
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
-            ),
-            subtitle: Text(isDark ? "Dark Mode" : "Light Mode"),
-            leading: Icon(isDark ? Icons.dark_mode : Icons.light_mode),
-            trailing: Switch(
-              value: isDark,
-              onChanged: (_) {
-                ref.read(themeNotifierProvider.notifier).toggleTheme();
-              },
-            ),
+          _SettingTile(
+            title: "UI mode",
+            subtitle: _getThemeSubtitle(ref.watch(themeNotifierProvider)),
+            icon: _getThemeIcon(ref.watch(themeNotifierProvider)),
+            onTap: () async {
+              String current =
+                  SharedPrefsService.instance.getString('themeMode') ?? 'system';
+
+              String? selected = await showDialog<String>(
+                context: context,
+                builder: (context) {
+                  String tempSelection = current;
+
+                  return StatefulBuilder(
+                    builder: (context, setState) {
+                      return AlertDialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        title: const Text("Choose Theme"),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            RadioListTile<String>(
+                              title: const Text('System Theme'),
+                              value: 'system',
+                              groupValue: tempSelection,
+                              onChanged: (value) {
+                                setState(() => tempSelection = value!);
+                              },
+                            ),
+                            RadioListTile<String>(
+                              title: const Text('Light Theme'),
+                              value: 'light',
+                              groupValue: tempSelection,
+                              onChanged: (value) {
+                                setState(() => tempSelection = value!);
+                              },
+                            ),
+                            RadioListTile<String>(
+                              title: const Text('Dark Theme'),
+                              value: 'dark',
+                              groupValue: tempSelection,
+                              onChanged: (value) {
+                                setState(() => tempSelection = value!);
+                              },
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            child: const Text("Cancel"),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          ElevatedButton(
+                            child: const Text("Apply"),
+                            onPressed: () =>
+                                Navigator.pop(context, tempSelection),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              );
+
+              if (selected != null) {
+                await ref
+                    .read(themeNotifierProvider.notifier)
+                    .setTheme(selected);
+              }
+            },
           ),
           Divider(),
           //Recent
@@ -237,6 +319,63 @@ class _SettingScreenState extends ConsumerState<SettingScreen> {
             onTap: () {},
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SettingTile extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _SettingTile({
+    required this.title,
+    this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.blueGrey),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (subtitle != null && subtitle!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        subtitle!,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+          ],
+        ),
       ),
     );
   }

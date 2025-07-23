@@ -21,9 +21,9 @@ class QuickAccessGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    if (internalStorage == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    // if (internalStorage == null) {
+    //   return const Center(child: CircularProgressIndicator());
+    // }
 
     return SizedBox(
       width: double.infinity,

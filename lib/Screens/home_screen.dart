@@ -72,6 +72,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
       if (!allGranted) await openAppSettings();
 
+      if (allGranted) {
+        await RecentlyDeletedManager().init();
+      }
       return allGranted;
     }
     return false;

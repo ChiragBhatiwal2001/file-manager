@@ -73,8 +73,10 @@ Future<void> _showPasteSheet(
       isScrollControlled: true,
       useSafeArea: true,
       context: context,
-      builder: (context) =>
-          BottomSheetForPasteOperation(isCopy: isCopy, selectedPaths: paths),
+      builder: (context) => BottomSheetForPasteOperation(
+        isCopy: isCopy,
+        selectedPaths: paths,
+      ),
     );
     if (result != null) {
       loadAgain(result);

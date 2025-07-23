@@ -6,24 +6,34 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:pdfx/pdfx.dart';
 
 class ThumbnailService {
+  static final _thumbnailCache = <String, Uint8List?>{};
+
   static Future<Uint8List?> getThumbnail(String path) async {
+    if (_thumbnailCache.containsKey(path)) return _thumbnailCache[path];
+
     final ext = p.extension(path).toLowerCase();
 
     try {
-      if (_isImage(ext)) return await File(path).readAsBytes();
-      if (_isVideo(ext)) {
-        return await VideoThumbnail.thumbnailData(
+      Uint8List? thumb;
+      if (_isImage(ext)) {
+        thumb = await File(path).readAsBytes();
+      } else if (_isVideo(ext)) {
+        thumb = await VideoThumbnail.thumbnailData(
           video: path,
           imageFormat: ImageFormat.JPEG,
           maxWidth: 150,
           quality: 75,
         );
+      } else if (ext == '.pdf') {
+        thumb = await _generatePdfThumbnail(path);
       }
-      if (ext == '.pdf') return await _generatePdfThumbnail(path);
+
+      _thumbnailCache[path] = thumb;
+      return thumb;
     } catch (e) {
       debugPrint('Thumbnail error for $path: $e');
+      return null;
     }
-    return null;
   }
 
   static bool _isImage(String ext) =>

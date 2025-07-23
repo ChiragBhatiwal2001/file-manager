@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:file_manager/Services/zip_unzip_item.dart';
 import 'package:path/path.dart' as p;
 import 'package:file_manager/Providers/hide_file_folder_notifier.dart';
 import 'package:file_manager/Services/get_meta_data.dart';
@@ -49,111 +48,87 @@ class _BottomSheetForSingleFileOperationState
 
   @override
   Widget build(BuildContext context) {
-    final isZip = widget.path.toLowerCase().endsWith('.zip');
-    final theme = Theme.of(context);
     final isDirectory = FileSystemEntity.isDirectorySync(widget.path);
     final isHidden = ref
         .read(hiddenPathsProvider.notifier)
         .isHidden(widget.path);
 
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: isDirectory ? 0.55 : 0.63,
-      builder: (context, scrollController) {
-        return isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Container(
-                decoration: BoxDecoration(
-                  color: theme.cardColor,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24),
+    return isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            HeaderForSingleFileOperation(
+              fileData: fileData,
+              path: widget.path,
+            ),
+            const Divider(thickness: 1),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 25,
+                vertical: 2,
+              ),
+              child: BodyForSingleFileOperation(
+                path: widget.path,
+                loadAgain: widget.loadAgain,
+                isChanged: widget.isChangeDirectory,
+              ),
+            ),
+
+            const Divider(thickness: 1),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _OptionRow(
+                    icon: isHidden
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                    label: isHidden ? "Un-Hide" : "Hide",
+                    onTap: () async {
+                      final notifier = ref.read(
+                        hiddenPathsProvider.notifier,
+                      );
+                      if (isHidden) {
+                        await notifier.unhidePath(widget.path);
+                      } else {
+                        await notifier.hidePath(widget.path);
+                      }
+                      if (context.mounted) Navigator.pop(context, true);
+                      widget.loadAgain(p.dirname(widget.path));
+                    },
                   ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 10,
-                      offset: Offset(0, -2),
+                  const Divider(),
+                  if (!isDirectory)
+                    _OptionRow(
+                      icon: Icons.share,
+                      label: "Share",
+                      onTap: () async {
+                        final params = ShareParams(
+                          files: [XFile(widget.path)],
+                        );
+                        final result = await SharePlus.instance.share(
+                          params,
+                        );
+                        if (result.status == ShareResultStatus.success &&
+                            context.mounted) {
+                          Navigator.pop(context, true);
+                        } else if (result.status ==
+                                ShareResultStatus.dismissed &&
+                            context.mounted) {
+                          ScaffoldMessenger.of(context).clearSnackBars();
+                        }
+                      },
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    HeaderForSingleFileOperation(
-                      fileData: fileData,
-                      path: widget.path,
-                    ),
-                    const Divider(height: 20, thickness: 1),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: BodyForSingleFileOperation(
-                          path: widget.path,
-                          loadAgain: widget.loadAgain,
-                          isChanged: widget.isChangeDirectory,
-                        ),
-                      ),
-                    ),
-                    const Divider(thickness: 1),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _OptionRow(
-                            icon: isHidden
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            label: isHidden ? "Un-Hide" : "Hide",
-                            onTap: () async {
-                              final notifier = ref.read(
-                                hiddenPathsProvider.notifier,
-                              );
-                              if (isHidden) {
-                                await notifier.unhidePath(widget.path);
-                              } else {
-                                await notifier.hidePath(widget.path);
-                              }
-                              if (context.mounted) Navigator.pop(context, true);
-                              widget.loadAgain(p.dirname(widget.path));
-                            },
-                          ),
-                          const Divider(),
-                          if (!isDirectory)
-                            _OptionRow(
-                              icon: Icons.share,
-                              label: "Share",
-                              onTap: () async {
-                                final params = ShareParams(
-                                  files: [XFile(widget.path)],
-                                );
-                                final result = await SharePlus.instance.share(
-                                  params,
-                                );
-                                if (result.status ==
-                                        ShareResultStatus.success &&
-                                    context.mounted) {
-                                  Navigator.pop(context, true);
-                                } else if (result.status ==
-                                        ShareResultStatus.dismissed &&
-                                    context.mounted) {
-                                  ScaffoldMessenger.of(
-                                    context,
-                                  ).clearSnackBars();
-                                }
-                              },
-                            ),
-                          if (!isDirectory) Divider(),
-                          //
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              );
-      },
-    );
+                  if (!isDirectory) Divider(),
+                  //
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        );
   }
 }
 
